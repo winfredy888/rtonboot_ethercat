@@ -16,7 +16,7 @@ The basic version uses the RK3588 CPU, and the experimental environment is the R
 
 
 
-The `readme.docx` file in the `doc` directory contains a basic guide for compiling, porting, and developing. Nuttx, U-Boot, and the kernel have all their source code committed. The buildroot source code is in the `buildroot/work` directory, containing libraries and applications. There are also corresponding directories in the `buildroot/package` directory. Configuration changes have been made to `buildroot/package/Config.in` and `buildroot/configs/rockchip_rk3588_defconfig`. Other code has not been committed because our code does not depend on other code in buildroot; it's all public RK code. You can request the code from Rongpin or download it from the public RK repository. The professional version will have a higher dependency rate.
+The `readme.docx` file in the `doc` directory contains a basic guide for compiling, porting, and developing. Nuttx, U-Boot, and the kernel have all their source code committed. The buildroot source code is in the `buildroot/work` directory, containing libraries and applications. There are also corresponding directories in the `buildroot/package` directory. Configuration changes have been made to `buildroot/package/Config.in` and `buildroot/configs/rockchip_rk3588_defconfig`. Other code has not been committed because our code does not depend on other code in buildroot; it's all public RK code. You can request the code from Rongpin or download it from the public RK repository. The professional version will have a higher dependency rate. The Nuttx Toolchain can not upload, users can download from network, the version is aarch64-none-elf-gcc (Arm GNU Toolchain 11.3.Rel1) 11.3.1 20220712.
 
 
 
