@@ -1,0 +1,43 @@
+
+/ {
+	rk817-sound {
+		compatible = "rockchip,multicodecs-card";
+		rockchip,card-name = "rockchip-rk817";
+	//	hp-det-gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_LOW>;
+	//	io-channels = <&saradc 1>;
+	//	io-channel-names = "adc-detect";
+	//	keyup-threshold-microvolt = <1800000>;
+	//	poll-interval = <100>;
+		rockchip,format = "i2s";
+		rockchip,mclk-fs = <256>;
+		rockchip,cpu = <&i2s1_2ch>;
+		rockchip,codec = <&rk817_codec>;
+	//	pinctrl-names = "default";
+	//	pinctrl-0 = <&hp_det>;
+	//	play-pause-key {
+	//		label = "playpause";
+	//		linux,code = <KEY_PLAYPAUSE>;
+	//		press-threshold-microvolt = <2000>;
+	//	};
+	};
+
+	rk_headset: rk-headset {
+		compatible = "rockchip_headset";
+		pinctrl-names = "default";
+    		pinctrl-0 = <&hp_det>;
+    		headset_gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&i2s1_2ch {
+       status = "okay";
+       #sound-dai-cells = <0>;
+};
+
+&pinctrl {
+	headphone {
+                hp_det: hp-det {
+                        rockchip,pins = <2 RK_PC6 RK_FUNC_GPIO &pcfg_pull_down>;
+                };
+        };
+};

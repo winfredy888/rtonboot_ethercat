@@ -1,0 +1,202 @@
+/dts-v1/;
+
+#include "rp-rk3399-board.dtsi"
+
+#include "rp-usb2-host0.dtsi"
+#include "rp-usb2-host1.dtsi"
+//#include "rp-usb3-otg-typeA.dtsi"
+#include "rp-usb3-otg-typeC.dtsi"
+#include "rp-usb3_1-host.dtsi"
+
+
+#include "rp-audio-rt5651.dtsi"
+#include "rp-pmu-rk808.dtsi"
+
+
+#include "rp-gpio-key.dtsi"
+#include "rp-adc-key.dtsi"
+      
+#include "rp-mipi-ov13850-camera.dtsi"
+//#include "rp-hdmiin.dtsi"
+
+#include "rp-wifi-sdio.dtsi" 
+#include "rp-bt-uart0.dtsi" 
+
+#include "rp-sdcard-mmc1.dtsi"
+#include "rp-gmac.dtsi"
+
+#include "rp-lcd-hdmi.dtsi"
+//#include "rp-lcd-mipi-5-720-1280.dtsi"
+//#include "rp-lcd-mipi-5-720-1280-v2.dtsi"
+//#include "rp-lcd-mipi-5.5-720-1280.dtsi"
+//#include "rp-lcd-mipi-5.5-1080-1920.dtsi"
+//#include "rp-lcd-mipi-5.5-720-1280-v2.dtsi"
+#include "rp-lcd-mipi-7-1024-600.dtsi"
+//#include "rp-lcd-mipi-7-800-1280.dtsi"
+//#include "rp-lcd-mipi-7-1200-1920.dtsi"
+//#include "rp-lcd-mipi-8-800-1280.dtsi"
+//#include "rp-lcd-mipi-8-800-1280-new.dtsi"
+//#include "rp-lcd-mipi-10-800-1280.dtsi"
+//#include "rp-lcd-mipi-10-1920-1200.dtsi"
+//#include "rp-lcd-edp-13.3-1920-1080.dtsi"
+
+
+
+/ {
+
+        model = "king-rk3399";
+        compatible = "rockchip,rk3399-excavator-linux", "rockchip,rk3399";
+
+	fan_gpio_control {
+            compatible = "fan_gpio_control";
+            gpio-pin = <&gpio1 RK_PC2 GPIO_ACTIVE_HIGH>;
+            thermal-zone = "cpu-thermal";
+            threshold-temp = <60000>; //60C
+            running-time = <10000>; //10s
+            status = "okay";
+        };
+        
+        rp_power{
+            compatible = "rp_power";
+
+            rp_not_deep_sleep = <1>;
+            status = "okay";
+
+            /* 
+         * #define GPIO_FUNCTION_OUTPUT 0
+         * #define GPIO_FUNCTION_INPUT 1
+         * #define GPIO_FUNCTION_IRQ 2
+         * #define GPIO_FUNCTION_FLASH 3
+         * #define GPIO_FUNCTION_OUTPUT_CTRL 4 //output and creat proc ctrl
+         * 
+         * you can define the gpio function as above
+         * on gpio_function = <>;
+     *
+     *If you want to set the uboot to high level, add the lower properties
+     *    regulator_uboot_on    
+         */        
+            
+            breathe-led { //run led
+                gpio_num = <&gpio4 RK_PD0 GPIO_ACTIVE_HIGH>;
+                gpio_function = <3>;
+                regulator_uboot_on;
+            };
+            
+            power_en { 
+                gpio_num = <&gpio4 RK_PD6 GPIO_ACTIVE_HIGH>;
+                gpio_function = <4>;
+                regulator_uboot_on;
+            }; 
+            
+            hub_rst { 
+                gpio_num = <&gpio1 RK_PD0 GPIO_ACTIVE_HIGH>;
+                gpio_function = <4>;
+                regulator_uboot_on;
+            }; 
+            
+            //fan_open { 
+            //    gpio_num = <&gpio1 RK_PC2 GPIO_ACTIVE_HIGH>;
+            //    gpio_function = <4>;
+            //    regulator_uboot_on;
+           // }; 
+            
+            gsm_power_en { 
+                gpio_num = <&gpio4 RK_PC6 GPIO_ACTIVE_HIGH>;
+                gpio_function = <4>;
+                regulator_uboot_on;
+            }; 
+        };
+
+        rp_gpio{
+                status = "okay";
+                compatible = "rp_gpio";
+                base_value = <0>; //3288_5.1 = 0   3288_7.1.2 = 992  3288_ubuntu = 992   3399_7.1.2 = 1000 3399_ubuntu = 0  
+
+        gpio4c5 {
+                    gpio_num = <&gpio4 RK_PC5 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;            //0:output，1:input
+                };
+
+	gpio4d5 {
+                    gpio_num = <&gpio4 RK_PD5 GPIO_ACTIVE_HIGH>;
+                    gpio_function = <0>;
+            };
+
+    };
+};
+
+&spi1 {
+	status = "disabled";
+	max-freq = <50000000>;
+	spi_test:spi_test@0 {
+	     status = "okay";
+	     compatible = "rockchip,spidev";
+	     reg = <0>;
+	     spi-max-frequency = <4000000>;
+	     spi-cpha;
+	     spi-cpol;
+	     cs-gpios = <&gpio1 RK_PB2 GPIO_ACTIVE_LOW>;
+	                    };
+      };
+
+&io_domains {
+        status = "okay";
+        bt656-supply = <&vcc_1v8>;              /* bt656_gpio2ab_ms */
+        audio-supply = <&vcca1v8_codec>;        /* audio_gpio3d4a_ms */
+        sdmmc-supply = <&vcc_sdio>;             /* sdmmc_gpio4b_ms */
+        gpio1830-supply = <&vcc_3v0>;           /* gpio1833_gpio4cd_ms */
+};
+
+&pmu_io_domains {
+        status = "okay";
+        pmu1830-supply = <&vcc_1v8>;     //king usb
+};
+
+//used to bluetooth
+//&uart0 {
+//        status = "okay";
+        //dma-names = "tx", "rx";
+        //dmas = <&dmac_peri 0>, <&dmac_peri 1>;
+//};
+
+//conflicts to ethernet
+&uart1 {
+        status = "disabled";
+        //dma-names = "tx", "rx";
+        //dmas = <&dmac_peri 2>, <&dmac_peri 3>;
+};
+
+//conflicts to debugger
+&uart2 { 
+        status = "disabled";
+        //dma-names = "tx", "rx";
+        //dmas = <&dmac_peri 4>, <&dmac_peri 5>;
+};
+
+//conflicts to ethernet
+&uart3 {
+        status = "disabled";
+        //dma-names = "tx", "rx";
+        //dmas = <&dmac_peri 6>, <&dmac_peri 7>;
+};
+
+&uart4 {
+        status = "okay";
+        pinctrl-names = "default";
+        pinctrl-0 = <&uart4_xfer>;
+        dma-names = "tx", "rx";
+        dmas = <&dmac_peri 8>, <&dmac_peri 9>;
+};
+
+&fiq_debugger {
+        rockchip,serial-id = <2>; //uart2
+        rockchip,wake-irq = <0>;
+        rockchip,irq-mode-enable = <1>;
+        compatible = "rockchip,fiq-debugger";
+        rockchip,baudrate = <115200>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&uart2c_xfer>;
+};
+
+
+

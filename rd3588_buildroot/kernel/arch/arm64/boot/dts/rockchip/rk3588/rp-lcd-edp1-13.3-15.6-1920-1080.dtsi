@@ -1,0 +1,126 @@
+/ {
+    panel-edp1 {
+        compatible = "simple-panel";
+        backlight = <&backlight_edp>;
+        power-supply = <&vcc3v3_lcd_n>;
+    init-delay-ms = <120>;
+        prepare-delay-ms = <120>;
+        enable-delay-ms = <120>;
+        unprepare-delay-ms = <120>;
+        disable-delay-ms = <120>;
+        width-mm = <129>;
+        height-mm = <171>;
+
+        panel-timing {
+                        clock-frequency = <150000000>;
+                        hactive = <1920>;
+                        vactive = <1080>;
+                        hfront-porch = <160>;
+                        hsync-len = <32>;
+                        hback-porch = <160>;
+                        vfront-porch = <3>;
+                        vsync-len = <5>;
+                        vback-porch = <23>;
+                        hsync-active = <0>;
+                        vsync-active = <0>;
+                        de-active = <0>;
+                        pixelclk-active = <0>;
+        };
+
+        port {
+            panel_in_edp1: endpoint {
+                remote-endpoint = <&edp1_out_panel>;
+            };
+        };
+    };
+
+
+};
+
+&vcc3v3_lcd_n {
+    compatible = "regulator-fixed";
+    regulator-name = "vcc3v3_lcd";
+    regulator-boot-on;
+    enable-active-high;
+    vin-supply = <&vcc_3v3_s0>;
+};
+
+&backlight_edp {
+        compatible = "pwm-backlight";
+        //pwms = <&pwm0 0 25000 1>;
+        status = "okay";
+        brightness-levels = <
+            80 82 84 86 88 90 92 94
+            100 100 100 100 100 100 100 100
+            110 110 110 110 110 110 110 110
+            120 120 120 120 120 120 120 120
+            130 130 130 130 130 130 130 130
+            140 150 150 150 150 150 150 150
+            170 170 170 170 170 170 170 170
+            170 170 170 170 170 170 170 170
+            180 180 180 180 180 180 180 180
+            180 180 180 180 180 180 180 180
+            190 190 190 190 190 190 190 190
+            190 190 190 190 190 190 190 190
+            200 200 200 200 200 200 200 200
+            200 200 200 200 200 200 200 200
+            200 200 200 200 200 200 200 200
+            200 200 200 200 200 200 200 200
+            200 200 200 200 200 200 200 200
+            200 200 200 200 200 200 200 200
+            200 200 200 200 200 200 200 200
+            210 210 210 210 210 210 210 210
+            220 220 220 220 220 220 220 220
+            220 220 220 220 220 220 220 220
+            220 220 220 220 220 220 220 220
+            230 230 230 230 230 230 230 230
+            230 230 230 230 230 230 230 230
+            230 230 230 230 230 230 230 230
+            240 240 240 240 240 240 240 240
+            240 240 240 240 240 240 240 240
+            240 240 240 240 240 240 240 240
+            240 240 240 240 240 240 240 240
+            240 241 242 243 244 245 246 247
+            248 249 250 251 252 253 254 255
+        >;
+        default-brightness-level = <200>;
+};
+
+&edp1 {
+    force-hpd;
+    status = "okay";
+
+    ports {
+        port@1 {
+            reg = <1>;
+
+            edp1_out_panel: endpoint {
+                remote-endpoint = <&panel_in_edp1>;
+            };
+        };
+    };
+};
+
+&route_edp1 {
+    status = "disabled";
+    connect = <&vp1_out_edp1>;
+};
+
+
+&edp1_in_vp0 {
+    status = "disabled";
+};
+
+&edp1_in_vp1 {
+    status = "okay";
+};
+
+&edp1_in_vp2 {
+    status = "disabled";
+};
+
+&hdptxphy1 {
+    status = "okay";
+};
+
+

@@ -1,0 +1,331 @@
+#include  <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/ioctl.h> 
+#include <signal.h>
+
+#include "../app-testbc-1.0.0/rtonboot_common.h"
+
+#undef RTONBOOT_DEBUG
+
+int fd;
+int shutdown = 0;
+int is_creating_msg = 0;
+uint32_t g_dst_msgid;
+
+unsigned char * p_map;
+
+int is_testbc_msg_created = 0;
+
+uint32_t g_offset_content_testbc;
+uint32_t g_offset_cur_list_testbc;
+
+int is_testbc_dummy_msg_created = 0;
+
+uint32_t g_offset_content_testbc_dummy;
+uint32_t g_offset_cur_list_testbc_dummy;
+
+void handle_sigio(void)
+{
+	unsigned char * ptr_msg_header;
+	struct rtonboot_msg_header * p_header;
+	struct rtonboot_resp_header * p_resp;
+	struct rtonboot_set_pending_status pending_status;
+	int ret;
+	
+	ptr_msg_header = p_map + 4;
+	p_header = (struct rtonboot_msg_header *)ptr_msg_header;
+	
+	if(is_creating_msg)
+	{
+		if(g_dst_msgid == MSGID_TESTBC)
+		{		
+			p_resp = (struct rtonboot_resp_header *)(p_map + (p_header->offset_content) );
+			
+			if(!(p_resp->resp_status))
+			{
+				is_testbc_msg_created = 1;
+				
+				g_offset_content_testbc = p_resp->offset_content;
+				
+				g_offset_cur_list_testbc = p_resp->offset_cur_list;
+				
+				#ifdef RTONBOOT_DEBUG
+				
+					printf("Winfred Young Create MSGID_TESTBC\n");
+					
+				#endif	
+			}
+			
+			is_creating_msg = 0;
+			
+			goto zero_pending_status;
+		}
+		else if(g_dst_msgid == MSGID_TESTBC_DUMMY)
+		{
+			p_resp = (struct rtonboot_resp_header *)(p_map + (p_header->offset_content) );
+			
+			if(!(p_resp->resp_status))
+			{
+				is_testbc_dummy_msg_created = 1;
+				
+				g_offset_content_testbc_dummy = p_resp->offset_content;
+				
+				g_offset_cur_list_testbc_dummy = p_resp->offset_cur_list;
+				
+				#ifdef RTONBOOT_DEBUG
+				
+					printf("Winfred Young Create MSGID_TESTBC_DUMMY \n");
+					
+				#endif	
+			}
+			
+			is_creating_msg = 0;
+			
+			goto zero_pending_status;
+		}	
+	}
+	else
+	{
+		goto zero_pending_status;
+	}
+	
+	zero_pending_status:
+	
+		pending_status.status = 0;
+	
+		ret = ioctl(fd, RTBRIDGE_IOCTL_SET_PENDING_STATUS, &pending_status);
+		if(ret < 0)
+		{
+			printf("Winfred Young /dev/rtbridge RTBRIDGE_IOCTL_SET_PENDING_STATUS fail\n");
+		}
+		else
+		{
+			#ifdef RTONBOOT_DEBUG
+			
+				printf("Winfred Young set pending status success\n");
+				
+			#endif	
+		}	
+}	
+
+void catch_signal(int signo)
+{
+	if(signo == SIGIO)
+	{
+		#ifdef RTONBOOT_DEBUG
+		
+			printf("Winfred Young catch sigio\n");
+			
+		#endif	
+		
+		handle_sigio();
+	}
+	else
+	{
+		#ifdef RTONBOOT_DEBUG
+		
+			printf("Winfred Young catch other sig\n");
+			
+		#endif	
+		
+		shutdown = 1;
+	}		
+}
+ 
+int main(int argc , char *argv[])
+{
+     unsigned long long * ptemp;
+     unsigned long long  testval;
+     int flags;
+     struct rtonboot_bufpara bufpara;
+     struct rtonboot_create_msg_desc create_msg_desc;
+     struct rtonboot_destroy_msg_desc destroy_msg_desc;
+     struct rtonboot_broadcast_receive_desc broadcast_receive_desc;
+     int ret;
+     int i = 0;
+     
+     if (SIG_ERR == signal(SIGIO, catch_signal))
+	 {
+        printf("Winfred Young signal failed\n");
+        
+        return -1;
+     }
+     
+     signal(SIGTERM, catch_signal);
+	 signal(SIGINT, catch_signal);
+     signal(SIGHUP, catch_signal);
+     
+     #ifdef RTONBOOT_DEBUG
+     
+		printf("This Process pid is %d\n", getpid());
+		
+	#endif	
+     
+     fd = open("/dev/rtbridge", O_RDWR);
+     if(fd < 0)
+     {
+         printf("Winfred Young open /dev/rtbridge fail\n");
+         
+         exit(1);
+     }
+     
+     ret = ioctl(fd, RTBRIDGE_IOCTL_GET_RTONBOOT_BUFPARA, &bufpara);
+     if(ret < 0)
+     {
+		 printf("Winfred Young /dev/rtbridge ioctl fail\n");
+		 
+		 close(fd);
+         
+         exit(1);
+     }
+     
+     #ifdef RTONBOOT_DEBUG
+     
+		printf("Winfred Young get bufpara total_size %lx offset_bulk is %lx\n", bufpara.total_size, bufpara.bulk_offset);
+		
+	 #endif	
+ 
+     p_map = (unsigned char *)mmap(0, bufpara.total_size, PROT_READ /*| PROT_WRITE*/, MAP_SHARED, fd, 0);
+     if(p_map == MAP_FAILED)
+     {
+         printf("Winfred Young mmap fail\n");
+         
+         goto here;
+     }
+     
+     ptemp = (unsigned long long *)(p_map);
+     
+     testval = (*(ptemp));
+     
+     #ifdef RTONBOOT_DEBUG
+     
+		printf("Winfred Young mmap testval is %llx \n", testval);
+		
+	 #endif	
+     
+     fcntl(fd, F_SETOWN, getpid());
+    flags = fcntl(fd, F_GETFL);
+    fcntl(fd, F_SETFL, flags | O_ASYNC);
+    
+    create_msg_desc.pid = getpid();
+    create_msg_desc.dst_msgid = MSGID_TESTBC;
+    create_msg_desc.max_content_size = 64;
+    create_msg_desc.msg_origin = MSG_ORIGIN_RTOS;
+    create_msg_desc.msg_has_response = MSG_NO_RESPONSE;
+    create_msg_desc.is_broadcast = 1;
+    create_msg_desc.is_kernel = 0;
+    
+    ret = ioctl(fd, RTBRIDGE_IOCTL_CREATE_MSG, &create_msg_desc);
+     if(ret < 0)
+     {
+		 printf("Winfred Young /dev/rtbridge ioctl RTBRIDGE_IOCTL_CREATE_MSG fail\n");
+		 
+		 close(fd);
+         
+         exit(1);
+     }
+     
+     is_creating_msg = 1;
+	 g_dst_msgid = create_msg_desc.dst_msgid;
+	 
+     while(!is_testbc_msg_created)
+     {
+		++i;
+		--i;
+	 }
+	 
+	 create_msg_desc.pid = getpid();
+    create_msg_desc.dst_msgid = MSGID_TESTBC_DUMMY;
+    create_msg_desc.max_content_size = 64;
+    create_msg_desc.msg_origin = MSG_ORIGIN_LINUX;
+    create_msg_desc.msg_has_response = MSG_NO_RESPONSE;
+    create_msg_desc.is_broadcast = 0;
+    create_msg_desc.is_kernel = 0;
+    
+    ret = ioctl(fd, RTBRIDGE_IOCTL_CREATE_MSG, &create_msg_desc);
+     if(ret < 0)
+     {
+		 printf("Winfred Young /dev/rtbridge ioctl RTBRIDGE_IOCTL_CREATE_MSG fail\n");
+		 
+		 close(fd);
+         
+         exit(1);
+     }
+     
+     is_creating_msg = 1;
+	 g_dst_msgid = create_msg_desc.dst_msgid;
+	 
+     while(!is_testbc_dummy_msg_created)
+     {
+		++i;
+		--i;
+	 }
+	 
+	 broadcast_receive_desc.pid = getpid();
+	 broadcast_receive_desc.is_receive = 1;
+	 
+	 ret = ioctl(fd, RTBRIDGE_IOCTL_BROADCAST_RECEIVE, &broadcast_receive_desc);
+     if(ret < 0)
+     {
+		 printf("Winfred Young /dev/rtbridge ioctl RTBRIDGE_IOCTL_BROADCAST_RECEIVE fail\n");
+		 
+		 close(fd);
+         
+         exit(1);
+     }
+     
+	 	   
+     while (!shutdown)
+     {
+		 ++i;
+		 --i;
+     };
+ 
+ here:
+ 
+     #ifdef RTONBOOT_DEBUG
+     
+		printf("Winfred Young exit from here\n");
+		
+	 #endif	
+     
+     if(is_testbc_msg_created)
+     {
+		 destroy_msg_desc.pid = getpid();
+		 destroy_msg_desc.dst_msgid = MSGID_TESTBC;
+		 destroy_msg_desc.offset_cur_list = g_offset_cur_list_testbc;
+		 
+		 ret = ioctl(fd, RTBRIDGE_IOCTL_DESTROY_MSG, &destroy_msg_desc);
+		 if(ret < 0)
+		 {
+			printf("Winfred Young /dev/rtbridge ioctl RTBRIDGE_IOCTL_DESTROY_MSG fail\n");
+		 }
+		 
+		 is_testbc_msg_created = 0;
+	 }
+	 
+	 if(is_testbc_dummy_msg_created)
+     {
+		 destroy_msg_desc.pid = getpid();
+		 destroy_msg_desc.dst_msgid = MSGID_TESTBC_DUMMY;
+		 destroy_msg_desc.offset_cur_list = g_offset_cur_list_testbc_dummy;
+		 
+		 ret = ioctl(fd, RTBRIDGE_IOCTL_DESTROY_MSG, &destroy_msg_desc);
+		 if(ret < 0)
+		 {
+			printf("Winfred Young /dev/rtbridge ioctl RTBRIDGE_IOCTL_DESTROY_MSG fail\n");
+		 }
+		 
+		 is_testbc_dummy_msg_created = 0;
+	 }
+	 	 
+     munmap(p_map, bufpara.total_size);
+     
+     close(fd);
+     
+     return 0;
+}

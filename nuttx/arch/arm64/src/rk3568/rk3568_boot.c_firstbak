@@ -1,0 +1,138 @@
+#include <nuttx/config.h>
+
+#include <stdint.h>
+#include <assert.h>
+#include <debug.h>
+
+#include <nuttx/cache.h>
+#ifdef CONFIG_PAGING
+#  include <nuttx/page.h>
+#endif
+
+#include <arch/chip/chip.h>
+
+#ifdef CONFIG_SMP
+#include "arm64_smp.h"
+#endif
+
+#include "arm64_arch.h"
+#include "arm64_internal.h"
+#include "arm64_mmu.h"
+#include "rk3568_boot.h"
+#include "rk3568_serial.h"
+
+/****************************************************************************
+ * Private Data
+ ****************************************************************************/
+
+static const struct arm_mmu_region g_mmu_regions[] =
+{
+  MMU_REGION_FLAT_ENTRY("DEVICE_REGION",
+                        CONFIG_DEVICEIO_BASEADDR, CONFIG_DEVICEIO_SIZE,
+                        MT_DEVICE_NGNRNE | MT_RW | MT_SECURE),
+
+  MMU_REGION_FLAT_ENTRY("DRAM0_S0",
+                        CONFIG_RAMBANK1_ADDR, CONFIG_RAMBANK1_SIZE,
+                        MT_NORMAL | MT_RW | MT_SECURE),
+};
+
+const struct arm_mmu_config g_mmu_config =
+{
+  .num_regions = nitems(g_mmu_regions),
+  .mmu_regions = g_mmu_regions,
+};
+
+
+void arm64_el_init(void)
+{
+  /* TODO: RK3568 set init sys clock */
+}
+
+void arm64_chip_boot(void)
+{
+  /* MAP IO and DRAM, enable MMU. */
+
+  #if 0
+  
+  arm64_mmu_init(true);
+  
+  #endif
+
+//#if defined(CONFIG_SMP) || defined(CONFIG_ARCH_HAVE_PSCI)
+#if 0
+  arm64_psci_init("smc");
+
+#endif
+
+  /* Perform board-specific device initialization. This would include
+   * configuration of board specific resources such as GPIOs, LEDs, etc.
+   */
+
+  rk3568_board_initialize();
+
+#ifdef USE_EARLYSERIALINIT
+  /* Perform early serial initialization if we are going to use the serial
+   * driver.
+   */
+
+  arm64_earlyserialinit();
+#endif
+}
+
+#if defined(CONFIG_NET) && !defined(CONFIG_NETDEV_LATEINIT)
+void arm64_netinitialize(void)
+{
+  /* TODO: Support net initialize */
+}
+#endif
+
+
+extern int linux_printf(const char *fmt, ...);
+extern int rtos_printf(const char *fmt, ...);
+
+int rtonboot_commu_handler(int irq, void *context, void *arg)
+{
+	//irqstate_t flags = enter_critical_section();
+	
+	rtos_printf("Winfred Young ccccccccccdddddddddd\n");
+	
+	//leave_critical_section(flags);
+	
+	return OK;
+}
+
+#if 0
+
+int up_cpu_index(void)
+{
+  /* Read the Multiprocessor Affinity Register (MPIDR)
+   * And return the CPU ID field
+   * 
+   * return MPID_TO_CORE(GET_MPIDR(), 1);
+   */  
+   
+  return MPID_TO_CORE(GET_MPIDR(), 0);
+}
+
+#endif
+
+/* return CORE_TO_MPID(cpu, 1); */
+
+uint64_t arm64_get_mpid(int cpu)
+{
+  return CORE_TO_MPID(cpu, 0);
+}
+
+/****************************************************************************
+ * Name: arm64_get_cpuid
+ *
+ * Description:
+ *   The function from mpid to get cpu id
+ *
+ *   //return MPID_TO_CORE(mpid, 1);
+ ****************************************************************************/
+
+int arm64_get_cpuid(uint64_t mpid)
+{  
+  return MPID_TO_CORE(mpid, 0);
+}

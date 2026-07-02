@@ -1,0 +1,12 @@
+#include "rp-lcd-edp0-13.3-15.6-1920-1080.dtsi"
+#include "rp-lcd-edp1-13.3-15.6-1920-1080.dtsi"
+#include "rp-lcd-typec-dp0.dtsi"      // usb dp0, must be enable rp-usb-typec.dtsi
+
+
+&route_edp0 {
+  status = "okay";
+};
+
+&route_edp1 {
+  status = "okay";
+};

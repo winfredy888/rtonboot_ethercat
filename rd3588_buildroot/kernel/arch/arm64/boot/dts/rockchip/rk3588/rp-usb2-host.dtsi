@@ -1,0 +1,16 @@
+/*2.0*/
+&u2phy2 {
+    status = "okay";
+};
+
+&u2phy3 {
+    status = "okay";
+};
+
+&u2phy2_host {
+    status = "okay";
+};
+
+&u2phy3_host {
+    status = "okay";
+};

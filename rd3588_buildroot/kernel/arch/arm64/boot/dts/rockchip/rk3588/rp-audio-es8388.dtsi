@@ -1,0 +1,73 @@
+/{
+    es8388_sound: es8388-sound {
+        status = "okay";
+        compatible = "rockchip,multicodecs-card";
+        rockchip,card-name = "rockchip-es8388";
+        hp-det-gpio = <&gpio1 RK_PC0 GPIO_ACTIVE_LOW>;
+        spk-con-gpio = <&gpio4 RK_PA4 GPIO_ACTIVE_HIGH>;
+        spk-mute-gpio = <&gpio4 RK_PA5 GPIO_ACTIVE_LOW>;
+        // hp-con-gpio = <&gpio3 RK_PD6 GPIO_ACTIVE_HIGH>;
+        rockchip,format = "i2s";
+        rockchip,mclk-fs = <256>;
+        rockchip,cpu = <&i2s0_8ch>;
+        rockchip,codec = <&es8388>;
+        rockchip,audio-routing =
+            "Headphone", "LOUT1",
+            "Headphone", "ROUT1",
+            "Speaker", "LOUT2",
+            "Speaker", "ROUT2",
+            "Headphone", "Headphone Power",
+            "Headphone", "Headphone Power",
+            "Speaker", "Speaker Power",
+            "Speaker", "Speaker Power",
+            "LINPUT1", "Main Mic",
+            "RINPUT1", "Main Mic";
+        pinctrl-names = "default";
+        pinctrl-0 = <&hp_det>;
+        play-pause-key {
+            label = "playpause";
+            linux,code = <KEY_PLAYPAUSE>;
+            press-threshold-microvolt = <2000>;
+        };
+    };
+};
+
+
+&i2s0_8ch {
+    status = "okay";
+    rockchip,path-map = <0 1 2 3>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2s0_lrck
+             &i2s0_sclk
+             &i2s0_sdi0
+             &i2s0_sdo0>;
+
+};
+
+&i2c7 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c7m0_xfer>;
+        es8388: es8388@10 {
+        status = "okay";
+        #sound-dai-cells = <0>;
+        compatible = "everest,es8388", "everest,es8323";
+        reg = <0x10>;
+        clocks = <&mclkout_i2s0>;
+        clock-names = "mclk";
+        assigned-clocks = <&mclkout_i2s0>;
+        assigned-clock-rates = <12288000>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&i2s0_mclk>;
+    };
+    
+};
+
+&pinctrl {
+    headphone {
+        hp_det: hp-det {
+            rockchip,pins = <1 RK_PC0 RK_FUNC_GPIO &pcfg_pull_up>;
+        };
+    };
+};
+

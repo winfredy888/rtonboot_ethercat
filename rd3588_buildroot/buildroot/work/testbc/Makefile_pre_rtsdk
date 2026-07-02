@@ -1,0 +1,12 @@
+all: rtonboot
+
+rtonboot: rtonboot.o
+	$(CC) -o rtonboot rtonboot.o
+
+clean:
+	rm -rf *.o
+	rm -rf rtonboot
+	
+install:
+	$(INSTALL) -D -m 0755 rtonboot $(TARGET_DIR)/bin
+	

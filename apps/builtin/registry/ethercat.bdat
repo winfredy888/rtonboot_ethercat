@@ -1,0 +1,1 @@
+{ "ethercat", 100, 131072, ethercat_main },

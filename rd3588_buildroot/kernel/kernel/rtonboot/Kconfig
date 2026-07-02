@@ -1,0 +1,26 @@
+menu "RTOnBoot features"
+
+config RTONBOOT_SUPPORT
+	bool "RTONBOOT SUPPORT"
+	default n
+	help
+	RTONBOOT SUPPORT.
+
+config RTONBOOT_CPUID
+	int "RTONBOOT_CPUID"
+	default 1
+	range 1 8
+	depends on RTONBOOT_SUPPORT
+	help
+	Define RTONBOOT_CPUID.
+		
+config RTONBOOT_ETHERCAT_SUPPORT
+	bool "RTONBOOT_ETHERCAT_SUPPORT"
+	default n
+	depends on RTONBOOT_SUPPORT
+	help
+	RTONBOOT_ETHERCAT_SUPPORT.
+	
+source "drivers/rtonboot/Kconfig"	
+
+endmenu

@@ -1,0 +1,581 @@
+/****************************************************************************
+ * apps/testing/osperf/osperf.c
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.  The
+ * ASF licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ ****************************************************************************/
+
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
+
+#include <assert.h>
+#include <limits.h>
+#include <pthread.h>
+#include <sched.h>
+#include <semaphore.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/param.h>
+#include <sys/poll.h>
+
+#include <nuttx/sched.h>
+#include <nuttx/kthread.h>
+
+#include "../common/arm64_internal.h"
+
+#include <nuttx/semaphore.h>
+
+#include "../../../../drivers/ethercat/master/mempool.h"
+
+#include "ectimer.h"
+
+#define EC_TIMER_BASE      0xFE5F0080
+
+#define PERF_TIMER_IRQ 145
+
+#define TIMER_CTRL		0x10
+#define TIMER_LOAD_COUNT0	0x00
+#define TIMER_LOAD_COUNT1	0x04
+#define TIMER_CURRENT_VALUE0	0x08
+#define TIMER_CURRENT_VALUE1	0x0C
+#define TIMER_INTSTATUS		0x18
+
+#define MYBIT(x) (1<<(x))
+
+#define TIMER_EN		MYBIT(0)
+#define TIMER_UD		MYBIT(1)
+#define TIMER_INT_EN		MYBIT(2)
+#define TIMER_CLR_INT		MYBIT(0)
+
+spinlock_t time_get_lock;
+
+uint32_t g_ec_timer_base = EC_TIMER_BASE;
+
+uint64_t start_us = 0ULL;
+
+uint64_t next_expire_us = 0ULL;
+
+extern int linux_printf(const char *fmt, ...);
+
+#define printf linux_printf
+
+struct list_head ec_usleep_list_head;
+
+mutex_t g_ec_usleep_lock = NXMUTEX_INITIALIZER;
+
+uint32_t g_load_count0 = 0;
+
+int volatile is_in_isr = 0;
+
+extern int volatile is_in_arch_isr;
+
+void ec_timer_init(void)
+{
+	INIT_LIST_HEAD(&ec_usleep_list_head);
+}	
+
+uint64_t get_ec_timer_count(void)
+{
+	uint32_t cur_count0, cur_count1;
+	uint64_t tmp;
+	
+	cur_count0 = getreg32( g_ec_timer_base + TIMER_CURRENT_VALUE0 );
+	
+	cur_count1 = getreg32( g_ec_timer_base + TIMER_CURRENT_VALUE1 );
+	
+	tmp = cur_count0 + (((uint64_t)cur_count1) << 32);
+	
+	return tmp;
+}
+
+int is_enable = 0;
+
+uint64_t get_ec_timer_compare(void)
+{
+	uint32_t load_count0, load_count1;
+	uint64_t tmp;
+	
+	load_count0 = getreg32( g_ec_timer_base + TIMER_LOAD_COUNT0 );
+	
+	load_count1 = getreg32( g_ec_timer_base + TIMER_LOAD_COUNT1 );
+	
+	tmp = load_count0 + (((uint64_t)load_count1) << 32);
+	
+	return tmp;
+}
+
+/*uint64_t calc_expire_us(uint64_t us, uint64_t * p_elp_us)
+{
+	uint64_t new_cnt;
+	uint64_t temp;
+	uint64_t cmp;
+	uint64_t ns;
+	
+	if(!next_expire_us)
+	{
+		*p_elp_us = 0;
+		
+		return (start_us + us);
+	}
+	
+	cmp = get_ec_timer_compare();
+	
+	new_cnt = get_ec_timer_count();
+	
+	new_cnt = cmp - new_cnt;
+	
+	ns = new_cnt * 41;
+	  
+	temp = ns / 1000;
+	  
+	ns -= (temp * 1000);
+	  
+	if(ns > 500)
+	{
+		++temp;
+	}
+	
+	*p_elp_us = temp;
+	
+	return (start_us + temp + us);
+}*/
+
+extern uint64_t ec_perf_cur_ns(void);	
+
+void ec_timer_usleep(uint64_t us)
+{
+  uint32_t load_count0, load_count1;
+  uint64_t ns;
+  struct ec_usleep_item * p_item;
+  uint64_t temp;
+  int is_enable_irq;
+  
+  if(!is_enable)
+  {
+	  is_enable = 1;
+	  
+	  /*up_enable_irq(PERF_TIMER_IRQ);*/
+	  		
+	  spin_lock_init(&time_get_lock);
+  }
+  
+  ns = ec_perf_cur_ns();
+  
+  start_us = ns / 1000;
+	  
+  ns -= (start_us * 1000);
+	  
+  if(ns > 500)
+  {
+		++start_us;
+  }
+  
+  p_item = (struct ec_usleep_item *)( AllocateECUsleepBlock() );
+     
+  DEBUGASSERT(p_item != NULL);
+  
+  nxsem_init( &(p_item->ec_usleep_sem), 0, 0);
+  
+  p_item->expire_us = start_us + us;
+  
+  while(is_in_isr)
+  {
+  };
+	
+  list_add_tail(&(p_item->ec_usleep_list), &ec_usleep_list_head);
+  
+  is_enable_irq = 0;
+  
+  if(!next_expire_us)
+  {
+	  next_expire_us = p_item->expire_us;
+	  
+	  is_enable_irq = 1; 
+  }
+  else
+  {
+	  if( (p_item->expire_us) < next_expire_us)
+	  {
+		  if( (next_expire_us - (p_item->expire_us)) >= 2)
+		  {
+			  next_expire_us = p_item->expire_us;
+					
+			  putreg32( 0, g_ec_timer_base + TIMER_CTRL);
+					
+			  temp = p_item->expire_us - start_us;
+					
+			  temp *= 1000ULL;
+					
+			  temp /= 41;
+					
+			  load_count1 = temp >> 32;
+			  load_count0 = temp & 0xffffffffL;
+	
+			  putreg32(load_count0, g_ec_timer_base + TIMER_LOAD_COUNT0);
+			  putreg32(load_count1, g_ec_timer_base + TIMER_LOAD_COUNT1);
+  		
+			  putreg32(TIMER_CLR_INT, g_ec_timer_base + TIMER_INTSTATUS);
+			  putreg32( TIMER_EN | TIMER_INT_EN, g_ec_timer_base +  TIMER_CTRL ); 		
+		  }	  
+	  }	   
+  }	 
+  
+  if(is_enable_irq)
+  {				
+	  putreg32( 0, g_ec_timer_base + TIMER_CTRL);
+	  
+	  temp = (us * 1000ULL);
+					
+	  temp /= 41;
+					
+	  load_count1 = temp >> 32;
+	  load_count0 = temp & 0xffffffffL;
+	
+	  putreg32(load_count0, g_ec_timer_base + TIMER_LOAD_COUNT0);
+	  putreg32(load_count1, g_ec_timer_base + TIMER_LOAD_COUNT1);
+  		
+	  putreg32(TIMER_CLR_INT, g_ec_timer_base + TIMER_INTSTATUS);
+	  putreg32( TIMER_EN | TIMER_INT_EN, g_ec_timer_base +  TIMER_CTRL );	
+  }	   
+  
+  nxsem_wait( &(p_item->ec_usleep_sem) );
+  
+  FreeECUsleepBlock(p_item);
+}
+
+int ec_timer_isr(int irq, void *regs, void *arg)
+{
+  struct list_head * p_head;
+  struct list_head * pTemp;
+  struct list_head * pTempBak;
+  struct ec_usleep_item * p_item;
+  uint64_t temp_next;
+  uint64_t temp;
+  uint32_t load_count0, load_count1;
+  
+  is_in_isr = 1;
+  
+  putreg32( TIMER_CLR_INT, g_ec_timer_base + TIMER_INTSTATUS);
+    
+  if(!is_enable)
+  {
+	  is_in_isr = 0;
+  
+	  return OK;
+  }	  
+  
+  p_head = &(ec_usleep_list_head);
+		
+  if(list_empty(p_head))
+  {
+	    next_expire_us = 0ULL;
+	    
+	    putreg32( 0, g_ec_timer_base + TIMER_CTRL);
+	    
+	    goto ec_return;
+  }
+  		
+  for(pTemp = p_head->next; pTemp != p_head; pTemp = pTempBak)
+  {
+		pTempBak = pTemp->next;
+		
+		p_item = (struct ec_usleep_item *)pTemp;
+		
+		if( (p_item->expire_us) <= next_expire_us)
+		{
+			list_del(&(p_item->ec_usleep_list));	
+			
+			nxsem_post( &(p_item->ec_usleep_sem) );
+		}	
+  }
+  
+  if(list_empty(p_head))
+  {
+	    next_expire_us = 0ULL;
+	    
+	    putreg32( 0, g_ec_timer_base + TIMER_CTRL);
+	    
+	    goto ec_return;
+  }
+  
+  temp_next = 0ULL;
+  
+  for(pTemp = p_head->next; pTemp != p_head; pTemp = pTempBak)
+  {
+		pTempBak = pTemp->next;
+		
+		p_item = (struct ec_usleep_item *)pTemp;
+		
+		if(!temp_next)
+		{
+			temp_next = p_item->expire_us;
+		}
+		else if( (p_item->expire_us) < temp_next)
+		{
+			temp_next = p_item->expire_us;
+		}	
+  }
+  
+  if(!temp_next)
+		goto ec_return;
+  
+  putreg32( 0, g_ec_timer_base + TIMER_CTRL);
+  
+  temp = temp_next - next_expire_us;
+  
+  next_expire_us = temp_next;
+					
+  temp *= 1000ULL;
+					
+  temp /= 41;
+					
+  load_count1 = temp >> 32;
+  load_count0 = temp & 0xffffffffL;
+			
+  putreg32(load_count0, g_ec_timer_base + TIMER_LOAD_COUNT0);
+  putreg32(load_count1, g_ec_timer_base + TIMER_LOAD_COUNT1);
+  		
+  putreg32(TIMER_CLR_INT, g_ec_timer_base + TIMER_INTSTATUS);
+  
+  putreg32( TIMER_EN | TIMER_INT_EN, g_ec_timer_base +  TIMER_CTRL );
+  
+  ec_return:
+  
+    is_in_isr = 0;
+  
+	return OK;
+}
+
+void ec_get_cur_time(struct ectime * p_ectime)
+{
+	/*irqstate_t flags;*/
+	
+	/*flags = spin_lock_irqsave(&time_get_lock);*/
+	
+	while(is_in_arch_isr)
+	{
+	};	
+	
+	p_ectime->count = arm64_arch_timer_count();
+	p_ectime->jiffies = jiffies;
+	
+	/*spin_unlock_irqrestore(&time_get_lock, flags);*/
+}
+
+extern uint64_t g_cycle_per_tick;
+
+static uint64_t ec_get_time_diff(struct ectime * p_ectime_start, struct ectime * p_ectime_end)
+{
+	uint64_t cnt;
+	uint64_t jif_diff;
+	
+	if( (p_ectime_start->jiffies) == (p_ectime_end->jiffies) ) 
+	{	
+		cnt = (p_ectime_start->count) - (p_ectime_end->count);
+		
+		if( (p_ectime_start->count) <= (p_ectime_end->count) )
+		{
+			linux_printf("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n");
+		}		
+		
+		cnt *= 41;
+		
+		goto return_val;
+	}
+	else if( (p_ectime_end->jiffies) == ((p_ectime_start->jiffies) + 1) )
+	{
+		cnt = p_ectime_start->count;
+		
+		cnt += ( g_cycle_per_tick - (p_ectime_end->count) );
+		
+		cnt *= 41;
+		
+		goto return_val;
+	}
+	else
+	{
+		cnt = p_ectime_start->count;
+		
+		cnt += ( g_cycle_per_tick - (p_ectime_end->count) );
+		
+		jif_diff = (p_ectime_end->jiffies) - (p_ectime_start->jiffies) - 1;
+		
+		cnt += (jif_diff * g_cycle_per_tick);
+		
+		cnt *= 41;
+		
+		goto return_val;
+	}
+	
+	return_val:
+	
+			return cnt;
+}
+
+uint64_t ec_get_time_diff_exec(struct ectime * p_ectime_start, struct ectime * p_ectime_end)
+{
+	uint64_t cnt;
+	uint64_t jif_diff;
+	
+	if( (p_ectime_start->jiffies) == (p_ectime_end->jiffies) ) 
+	{	
+		cnt = (p_ectime_start->count) - (p_ectime_end->count);
+		
+		cnt *= 41;
+		
+		goto return_val;
+	}
+	else if( (p_ectime_end->jiffies) == ((p_ectime_start->jiffies) + 1) )
+	{
+		cnt = p_ectime_start->count;
+		
+		cnt += ( g_cycle_per_tick - (p_ectime_end->count) );
+		
+		cnt *= 41;
+		
+		goto return_val;
+	}
+	else
+	{
+		cnt = p_ectime_start->count;
+		
+		cnt += ( g_cycle_per_tick - (p_ectime_end->count) );
+		
+		jif_diff = (p_ectime_end->jiffies) - (p_ectime_start->jiffies) - 1;
+		
+		cnt += (jif_diff * g_cycle_per_tick);
+		
+		cnt *= 41;
+		
+		goto return_val;
+	}
+	
+	return_val:
+	
+			if(cnt > 1000000)
+			{
+				cnt = 861;
+			}	
+	
+			return cnt;
+}
+
+
+uint64_t ec_get_time_diff_period(struct ectime * p_ectime_start, struct ectime * p_ectime_end)
+{
+	uint64_t cnt;
+	uint64_t jif_diff;
+	
+	if( (p_ectime_start->jiffies) == (p_ectime_end->jiffies) ) 
+	{
+		if( (p_ectime_start->count) < (p_ectime_end->count) )
+		{
+			return 1008436;
+		}
+			
+		cnt = (p_ectime_start->count) - (p_ectime_end->count);
+		
+		cnt *= 41;
+		
+		goto return_period;
+	}
+	else if( (p_ectime_end->jiffies) == ((p_ectime_start->jiffies) + 1) )
+	{
+		cnt = p_ectime_start->count;
+		
+		cnt += ( g_cycle_per_tick - (p_ectime_end->count) );
+		
+		cnt *= 41;
+		
+		goto return_period;
+	}
+	else
+	{
+		cnt = p_ectime_start->count;
+		
+		cnt += ( g_cycle_per_tick - (p_ectime_end->count) );
+		
+		jif_diff = (p_ectime_end->jiffies) - (p_ectime_start->jiffies) - 1;
+		
+		cnt += (jif_diff * g_cycle_per_tick);
+		
+		cnt *= 41;
+		
+		goto return_period;
+	}
+	
+	return_period:
+	
+	if(cnt > 1900000)
+	{
+		return 1006878;
+	}	
+	
+	if(cnt < 1000000)
+	{
+		return 1007452;
+	}
+	
+	return cnt;
+}
+
+uint64_t ec_get_calc_diff(struct ectime * p_ectime_start, struct ectime * p_ectime_end, uint64_t cycletime_ns)
+{
+	uint64_t real_ns = ec_get_time_diff(p_ectime_start, p_ectime_end);
+	uint64_t diff_ns;
+	
+	if(real_ns >= cycletime_ns)
+	{
+		diff_ns = real_ns - cycletime_ns;
+	}	
+	else
+	{
+		diff_ns = real_ns;
+		
+		if(diff_ns > 900000)
+		{
+			diff_ns = cycletime_ns - real_ns;
+		}	
+	}	
+	
+	/*if(diff_ns > 980000)
+	{
+		return 1548;
+	}*/
+	
+	return diff_ns;
+}	
+
+uint64_t ec_get_cur_time_ns(void)
+{
+	uint64_t cnt;
+	uint64_t jif;
+	
+	cnt = arm64_arch_timer_count();
+	jif = jiffies;
+	
+	cnt = g_cycle_per_tick - cnt;
+	cnt += (jif * g_cycle_per_tick);
+	
+	cnt *= 41;
+	
+	return cnt;
+}

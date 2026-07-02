@@ -1,0 +1,48 @@
+
+&u2phy2 {
+    status = "okay";
+};
+
+&u2phy3 {
+    status = "okay";
+};
+/*
+&u2phy1_otg {
+    status = "disabled";
+};
+*/
+&u2phy2_host {
+    status = "okay";
+};
+
+&u2phy3_host {
+    status = "okay";
+};
+
+&usb_host0_ehci {
+    status = "okay";
+};
+
+&usb_host0_ohci {
+    status = "okay";
+};
+
+&usb_host1_ehci {
+    status = "okay";
+};
+
+&usb_host1_ohci {
+    status = "okay";
+};
+
+
+
+
+&usbhost3_0 {
+    status = "disabled";
+};
+
+&usbhost_dwc3_0 {
+    status = "disabled";
+};
+

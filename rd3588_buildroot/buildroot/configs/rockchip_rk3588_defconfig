@@ -1,0 +1,40 @@
+#include "base/base.config"
+#include "chips/rk3588_aarch64.config"
+#include "font/chinese.config"
+#include "fs/exfat.config"
+#include "fs/ntfs.config"
+#include "fs/vfat.config"
+#include "gpu/gpu.config"
+#include "multimedia/audio.config"
+#include "multimedia/camera.config"
+#include "multimedia/gst/audio.config"
+#include "multimedia/gst/camera.config"
+#include "multimedia/gst/rtsp.config"
+#include "multimedia/gst/video.config"
+#include "multimedia/mpp.config"
+#include "wifibt/bt.config"
+#include "wifibt/wireless.config"
+#include "tools/benchmark.config"
+#include "tools/common.config"
+#include "tools/test.config"
+#include "chromium.config"
+#include "npu2.config"
+#include "powermanager.config"
+#include "weston.config"
+#include "qt/qt5.config"
+#include "qt/app.config"
+BR2_ROOTFS_OVERLAY+="board/rockchip/rk3588/fs-overlay/"
+BR2_PACKAGE_APP_RTONBOOT=y
+BR2_PACKAGE_APP_TESTBC=y
+BR2_PACKAGE_LIB_RTSDK=y
+BR2_PACKAGE_APP_ECCRTL=y
+BR2_PACKAGE_APP_EC_CYCLIC=y
+BR2_PACKAGE_APP_EC_INTER=y
+BR2_PACKAGE_APP_EC_INTER=y
+BR2_PACKAGE_APP_SIMPLETEST=y
+BR2_PACKAGE_APP_PRINTDBG=y
+BR2_PACKAGE_APP_MOTORCTL=y
+BR2_PACKAGE_APP_MOTORPP=y
+BR2_PACKAGE_APP_MKPREACTIMG=y
+BR2_PACKAGE_APP_RTETHCRTL=y
+

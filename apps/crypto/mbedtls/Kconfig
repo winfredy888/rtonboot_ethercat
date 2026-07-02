@@ -1,0 +1,651 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+menuconfig CRYPTO_MBEDTLS
+	bool "Mbed TLS Cryptography Library"
+	default n
+	---help---
+		Enable support for Mbed TLS.
+
+if CRYPTO_MBEDTLS
+
+config MBEDTLS_VERSION
+	string "Mbed TLS Version"
+	default "3.4.0"
+
+config MBEDTLS_DEBUG_C
+	bool "This module provides debugging functions."
+	default DEBUG_FEATURES
+	---help---
+		This module provides debugging functions.
+
+config MBEDTLS_SSL_IN_CONTENT_LEN
+	int "Maximum length (in bytes) of incoming plaintext fragments."
+	default 16384
+	---help---
+		Maximum length (in bytes) of incoming plaintext fragments.
+
+config MBEDTLS_SSL_OUT_CONTENT_LEN
+	int "Maximum length (in bytes) of outgoing plaintext fragments."
+	default 16384
+	---help---
+		Maximum length (in bytes) of outgoing plaintext fragments.
+
+config MBEDTLS_SSL_SRV_C
+	bool "This module is required for SSL/TLS server support."
+	default y
+	---help---
+		This module is required for SSL/TLS server support.
+
+config MBEDTLS_PLATFORM_MEMORY
+	bool "Enable the memory allocation layer."
+	depends on MBEDTLS_PLATFORM_C
+	default n
+
+config MBEDTLS_ENTROPY_HARDWARE_ALT
+	bool "Uncomment this macro to let mbed TLS use your own implementation of a hardware entropy collector."
+	default n
+	depends on DEV_RANDOM
+	select MBEDTLS_NO_PLATFORM_ENTROPY
+
+config MBEDTLS_AES_ROM_TABLES
+	bool "Store the AES tables in ROM."
+	default n
+
+config MBEDTLS_NO_PLATFORM_ENTROPY
+	bool "Do not use built-in platform entropy functions."
+	default n
+
+config MBEDTLS_ECP_RESTARTABLE
+	bool "Enable the restartable ECC."
+	depends on MBEDTLS_ECP_C
+	default n
+
+config MBEDTLS_SELF_TEST
+	bool "Enable the checkup functions (*_self_test)."
+	default n
+
+config MBEDTLS_SSL_DTLS_CLIENT_PORT_REUSE
+	bool "Enable server-side support for clients that reconnect from the same port."
+	depends on MBEDTLS_SSL_DTLS_HELLO_VERIFY
+	default y
+
+config MBEDTLS_CAMELLIA_C
+	bool "Enable the Camellia block cipher."
+	default y
+
+config MBEDTLS_PADLOCK_C
+	bool "Enable VIA Padlock support on x86."
+	default !MBEDTLS_AES_ALT
+
+config MBEDTLS_TIMING_C
+	bool "Enable the semi-portable timing interface."
+	default y
+
+config MBEDTLS_SSL_KEEP_PEER_CERTIFICATE
+	bool "Enable the availability of the API mbedtls_ssl_get_peer_cert() giving access to the peer's certificate after completion of the handshake."
+	default y
+
+config MBEDTLS_SSL_PROTO_DTLS
+	bool "Enable support for DTLS (all available versions)."
+	default y
+
+if MBEDTLS_SSL_PROTO_DTLS
+
+config MBEDTLS_SSL_DTLS_ANTI_REPLAY
+	bool "Enable support for the anti-replay mechanism in DTLS."
+	default y
+
+config MBEDTLS_SSL_DTLS_HELLO_VERIFY
+	bool "Enable support for HelloVerifyRequest on DTLS servers."
+	default y
+
+config MBEDTLS_SSL_DTLS_CONNECTION_ID
+	bool "Enable the Connection ID extension."
+	default y
+
+config MBEDTLS_SSL_DTLS_CONNECTION_ID_COMPAT
+	int "Enable the standard version of DTLS Connection ID feature."
+	depends on MBEDTLS_SSL_DTLS_CONNECTION_ID
+	default 0
+
+endif # MBEDTLS_SSL_PROTO_DTLS
+
+config MBEDTLS_SSL_ALPN
+	bool "Enable support for RFC 7301 Application Layer Protocol Negotiation."
+	default y
+
+config MBEDTLS_AESNI_C
+	bool "Enable AES-NI support on x86-64."
+	depends on ARCH_X86_64
+	default !MBEDTLS_AES_ALT
+
+config MBEDTLS_ECP_WINDOW_SIZE
+	int "Maximum window size used"
+	default 6
+
+config MBEDTLS_ECP_FIXED_POINT_OPTIM
+	bool "Enable fixed-point speed-up"
+	default n
+
+config MBEDTLS_CMAC_C
+	bool "Enable the CMAC (Cipher-based Message Authentication Code) mode for block"
+	default y
+
+config MBEDTLS_NET_C
+	bool "Enable the TCP and UDP over IPv6/IPv4 networking routines"
+	default LIBC_NETDB
+
+config MBEDTLS_ECDSA_C
+	bool "Enable the elliptic curve DSA library."
+	default y
+
+config MBEDTLS_ECP_C
+	bool "Enable the elliptic curve over GF(p) library."
+	default y
+
+config MBEDTLS_ECP_DP_SECP256R1_ENABLED
+	bool "Enables specific curves within the Elliptic Curve module."
+	default y
+
+config MBEDTLS_PEM_WRITE_C
+	bool "Enable PEM encoding / writing."
+	default y
+
+config MBEDTLS_PK_WRITE_C
+	bool "Enable the generic public (asymmetric) key writer."
+	default y
+
+config MBEDTLS_X509_CREATE_C
+	bool "Enable X.509 core for creating certificates."
+	default y
+
+config MBEDTLS_X509_CRT_WRITE_C
+	bool "Enable creating X.509 certificates."
+	depends on MBEDTLS_X509_CREATE_C
+	default y
+
+config MBEDTLS_X509_CSR_WRITE_C
+	bool "Enable creating X.509 Certificate Signing Requests (CSR)."
+	depends on MBEDTLS_X509_CREATE_C
+	default y
+
+config MBEDTLS_X509_CSR_PARSE_C
+	bool "Enable X.509 Certificate Signing Request (CSR) parsing."
+	default y
+
+config MBEDTLS_X509_CRT_POOL
+	bool "Enable the X509 Certificate Pool"
+	default n
+
+config MBEDTLS_HAVE_ASM
+	bool "Enable compiler support for asm."
+	default y
+
+config MBEDTLS_HAVE_TIME_DATE
+	bool "Enable to verify the validity period of X.509 certificates when system have correct clock."
+	default y
+
+config MBEDTLS_CIPHER_MODE_CFB
+	bool "Enable Cipher Feedback mode (CFB) for symmetric ciphers."
+	default y
+
+config MBEDTLS_CIPHER_MODE_CTR
+	bool "Enable Counter Block Cipher mode (CTR) for symmetric ciphers."
+	default y
+
+config MBEDTLS_CIPHER_MODE_OFB
+	bool "Enable Output Feedback mode (OFB) for symmetric ciphers."
+	default y
+
+config MBEDTLS_CIPHER_MODE_XTS
+	bool "Enable Xor-encrypt-xor with ciphertext stealing mode (XTS) for AES."
+	default y
+
+config MBEDTLS_CIPHER_PADDING_PKCS7
+	bool "Enable PKCS7 padding mode in the cipher layer."
+	default y
+
+config MBEDTLS_CIPHER_PADDING_ONE_AND_ZEROS
+	bool "Enable bit padding mode in the cipher layer."
+	default y
+
+config MBEDTLS_CIPHER_PADDING_ZEROS_AND_LEN
+	bool "Enable zero and length padding mode in the cipher layer."
+	default y
+
+config MBEDTLS_CIPHER_PADDING_ZEROS
+	bool "Enable zeros padding mode in the cipher layer."
+	default y
+
+config MBEDTLS_ECP_DP_SECP192R1_ENABLED
+	bool "Enables SECP192R1 curve within the Elliptic Curve module."
+	default y
+
+config MBEDTLS_ECP_DP_SECP224R1_ENABLED
+	bool "Enables SECP224R1 curve within the Elliptic Curve module."
+	default y
+
+config MBEDTLS_ECP_DP_SECP384R1_ENABLED
+	bool "Enables SECP384R1 curve within the Elliptic Curve module."
+	default y
+
+config MBEDTLS_ECP_DP_SECP521R1_ENABLED
+	bool "Enables SECP521R1 curve within the Elliptic Curve module."
+	default y
+
+config MBEDTLS_ECP_DP_SECP192K1_ENABLED
+	bool "Enables SECP192K1 curve within the Elliptic Curve module."
+	default y
+
+config MBEDTLS_ECP_DP_SECP224K1_ENABLED
+	bool "Enables SECP224K1 curve within the Elliptic Curve module."
+	default y
+
+config MBEDTLS_ECP_DP_SECP256K1_ENABLED
+	bool "Enables SECP256K1 curve within the Elliptic Curve module."
+	default y
+
+config MBEDTLS_ECP_DP_BP256R1_ENABLED
+	bool "Enables BP256R1 curve within the Elliptic Curve module."
+	default y
+
+config MBEDTLS_ECP_DP_BP384R1_ENABLED
+	bool "Enables BP384R1 curve within the Elliptic Curve module."
+	default y
+
+config MBEDTLS_ECP_DP_BP512R1_ENABLED
+	bool "Enables BP512R1 curve within the Elliptic Curve module."
+	default y
+
+config MBEDTLS_ECP_DP_CURVE25519_ENABLED
+	bool "Enables CURVE25519 curve within the Elliptic Curve module."
+	default y
+
+config MBEDTLS_ECP_DP_CURVE448_ENABLED
+	bool "Enables CURVE448 curve within the Elliptic Curve module."
+	default y
+
+config MBEDTLS_ECP_NIST_OPTIM
+	bool "Enable specific 'modulo p' routines for each NIST prime."
+	default y
+
+config MBEDTLS_ECDSA_DETERMINISTIC
+	bool "Enable deterministic ECDSA (RFC 6979)."
+	depends on MBEDTLS_HMAC_DRBG_C && MBEDTLS_ECDSA_C
+	default y
+
+config MBEDTLS_KEY_EXCHANGE_PSK_ENABLED
+	bool "Enable the PSK based ciphersuite modes in SSL / TLS."
+	default y
+
+config MBEDTLS_KEY_EXCHANGE_DHE_PSK_ENABLED
+	bool "Enable the DHE-PSK based ciphersuite modes in SSL / TLS."
+	depends on MBEDTLS_DHM_C
+	default y
+
+config MBEDTLS_KEY_EXCHANGE_ECDHE_PSK_ENABLED
+	bool "Enable the ECDHE-PSK based ciphersuite modes in SSL / TLS."
+	depends on MBEDTLS_ECDH_C
+	default y
+
+config MBEDTLS_KEY_EXCHANGE_RSA_PSK_ENABLED
+	bool "Enable the RSA-PSK based ciphersuite modes in SSL / TLS."
+	default y
+
+config MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED
+	bool "Enable the DHE-RSA based ciphersuite modes in SSL / TLS."
+	depends on MBEDTLS_DHM_C
+	default y
+
+config MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED
+	bool "Enable the ECDHE-RSA based ciphersuite modes in SSL / TLS."
+	depends on MBEDTLS_ECDH_C
+	default y
+
+config MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA_ENABLED
+	bool "Enable the ECDHE-ECDSA based ciphersuite modes in SSL / TLS."
+	depends on MBEDTLS_ECDH_C && MBEDTLS_ECDSA_C
+	default y
+
+config MBEDTLS_KEY_EXCHANGE_ECDH_RSA_ENABLED
+	bool "Enable the ECDH-RSA based ciphersuite modes in SSL / TLS."
+	depends on MBEDTLS_ECDH_C
+	default y
+
+config MBEDTLS_PK_PARSE_EC_EXTENDED
+	bool "Enhance support for reading EC keys using variants of SEC1 not allowed by RFC 5915 and RFC 5480."
+	default y
+
+config MBEDTLS_ERROR_STRERROR_DUMMY
+	bool "Enable a dummy error function to make use of mbedtls_strerror()."
+	default y
+
+config MBEDTLS_GENPRIME
+	bool "Enable the prime-number generation code."
+	default y
+
+config MBEDTLS_PK_RSA_ALT_SUPPORT
+	bool "Support external private RSA keys (eg from a HSM) in the PK layer."
+	default y
+
+config MBEDTLS_SSL_CONTEXT_SERIALIZATION
+	bool "Enable serialization of the TLS context structures."
+	depends on MBEDTLS_GCM_C || MBEDTLS_CCM_C || MBEDTLS_CHACHAPOLY_C
+	default y
+
+config MBEDTLS_SSL_ENCRYPT_THEN_MAC
+	bool "Enable support for Encrypt-then-MAC, RFC 7366."
+	default y
+
+config MBEDTLS_SSL_EXTENDED_MASTER_SECRET
+	bool "Enable Session Hash and Extended Master Secret Extension."
+	default y
+
+config MBEDTLS_SSL_RENEGOTIATION
+	bool "Enable support for TLS renegotiation."
+	default y
+
+config MBEDTLS_SSL_MAX_FRAGMENT_LENGTH
+	bool "Enable support for RFC 6066 max_fragment_length extension in SSL."
+	default y
+
+config MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_PSK_ENABLED
+	bool "Enable TLS 1.3 PSK key exchange mode."
+	default y
+
+config MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_EPHEMERAL_ENABLED
+	bool "Enable TLS 1.3 ephemeral key exchange mode."
+	depends on MBEDTLS_ECDH_C
+	default y
+
+config MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_PSK_EPHEMERAL_ENABLED
+	bool "Enable TLS 1.3 PSK ephemeral key exchange mode."
+	depends on MBEDTLS_ECDH_C
+	default y
+
+config MBEDTLS_SSL_MAX_EARLY_DATA_SIZE
+	int "The default maximum amount of 0-RTT data."
+	default 1024
+
+config MBEDTLS_SSL_SESSION_TICKETS
+	bool "Enable support for RFC 5077 session tickets in SSL."
+	default y
+
+config MBEDTLS_SSL_SERVER_NAME_INDICATION
+	bool "Enable support for RFC 6066 server name indication (SNI) in SSL."
+	default y
+
+config MBEDTLS_THREADING_PTHREAD
+	bool "Enable the pthread wrapper layer for the threading layer."
+	depends on MBEDTLS_THREADING_C
+	default n
+
+config MBEDTLS_VERSION_FEATURES
+	bool "Allow run-time checking of compile-time enabled features."
+	depends on MBEDTLS_VERSION_C
+	default y
+
+config MBEDTLS_X509_RSASSA_PSS_SUPPORT
+	bool "Enable parsing and verification of X.509 certificates, CRLs and CSRS signed with RSASSA-PSS."
+	default y
+
+config MBEDTLS_AESCE_C
+	bool "Enable AES cryptographic extension support on 64-bit Arm."
+	depends on MBEDTLS_HAVE_ASM
+	default y
+
+config MBEDTLS_ARIA_C
+	bool "Enable the ARIA block cipher."
+	default y
+
+config MBEDTLS_CCM_C
+	bool "Enable the Counter with CBC-MAC (CCM) mode for 128-bit block cipher."
+	default y
+
+config MBEDTLS_CHACHA20_C
+	bool "Enable the ChaCha20 stream cipher."
+	default y
+
+config MBEDTLS_CHACHAPOLY_C
+	bool "Enable the ChaCha20-Poly1305 AEAD algorithm."
+	depends on MBEDTLS_CHACHA20_C && MBEDTLS_POLY1305_C
+	default y
+
+config MBEDTLS_DHM_C
+	bool "Enable the Diffie-Hellman-Merkle module."
+	default y
+
+config MBEDTLS_ECDH_C
+	bool "Enable the elliptic curve Diffie-Hellman library."
+	depends on MBEDTLS_ECP_C
+	default y
+
+config MBEDTLS_ECDSA_C
+	bool "Enable the elliptic curve DSA library."
+	depends on MBEDTLS_ECP_C
+	default y
+
+config MBEDTLS_ECJPAKE_C
+	bool "Enable the elliptic curve J-PAKE library."
+	depends on MBEDTLS_ECP_C
+	default y
+
+config MBEDTLS_ECP_C
+	bool "Enable the elliptic curve over GF(p) library."
+	depends on MBEDTLS_ECP_DP_SECP256R1_ENABLED || MBEDTLS_ECP_DP_SECP192R1_ENABLED \
+		|| MBEDTLS_ECP_DP_SECP224R1_ENABLED || MBEDTLS_ECP_DP_SECP384R1_ENABLED \
+		|| MBEDTLS_ECP_DP_SECP521R1_ENABLED || MBEDTLS_ECP_DP_SECP192K1_ENABLED \
+		|| MBEDTLS_ECP_DP_SECP224K1_ENABLED || MBEDTLS_ECP_DP_SECP256K1_ENABLED \
+		|| MBEDTLS_ECP_DP_BP256R1_ENABLED || MBEDTLS_ECP_DP_BP384R1_ENABLED \
+		|| MBEDTLS_ECP_DP_BP512R1_ENABLED || MBEDTLS_ECP_DP_CURVE25519_ENABLED \
+		|| MBEDTLS_ECP_DP_CURVE448_ENABLED
+	default y
+
+config MBEDTLS_ERROR_C
+	bool "Enable error code to error string conversion."
+	default y
+
+config MBEDTLS_GCM_C
+	bool "Enable the Galois/Counter Mode (GCM)."
+	default y
+
+config MBEDTLS_HKDF_C
+	bool "Enable the HKDF algorithm (RFC 5869)."
+	default y
+
+config MBEDTLS_HMAC_DRBG_C
+	bool "Enable the HMAC_DRBG random generator."
+	default y
+
+config MBEDTLS_LMS_C
+	bool "Enable the LMS stateful-hash asymmetric signature algorithm."
+	depends on MBEDTLS_PSA_CRYPTO_C
+	default y
+
+config MBEDTLS_NIST_KW_C
+	bool "Enable the Key Wrapping mode for 128-bit block ciphers."
+	default y
+
+config MBEDTLS_PKCS5_C
+	bool "Enable PKCS#5 functions."
+	default y
+
+config MBEDTLS_PKCS7_C
+	bool "Enable PKCS #7 core for using PKCS #7-formatted signatures."
+	depends on MBEDTLS_X509_CRL_PARSE_C
+	default y
+
+config MBEDTLS_PKCS12_C
+	bool "Enable PKCS#12 PBE functions."
+	default y
+
+config MBEDTLS_PLATFORM_C
+	bool "Enable the platform abstraction layer."
+	default y
+
+config MBEDTLS_POLY1305_C
+	bool "Enable the Poly1305 MAC algorithm."
+	default y
+
+config MBEDTLS_PSA_CRYPTO_C
+	bool "Enable the Platform Security Architecture cryptography API."
+	default y
+
+config MBEDTLS_PSA_CRYPTO_STORAGE_C
+	bool "Enable the Platform Security Architecture persistent key storage."
+	depends on MBEDTLS_PSA_CRYPTO_C
+	default y
+
+config MBEDTLS_PSA_ITS_FILE_C
+	bool "Enable the emulation of the Platform Security Architecture Internal Trusted Storage (PSA ITS) over files."
+	default y
+
+config MBEDTLS_RIPEMD160_C
+	bool "Enable the RIPEMD-160 hash algorithm."
+	default y
+
+config MBEDTLS_SHA384_C
+	bool "Enable the SHA-384 cryptographic hash algorithm."
+	default y
+
+config MBEDTLS_SHA512_C
+	bool "Enable SHA-512 cryptographic hash algorithms."
+	default y
+
+config MBEDTLS_SSL_CACHE_C
+	bool "Enable simple SSL cache implementation."
+	default y
+
+config MBEDTLS_SSL_TICKET_C
+	bool "Enable an implementation of TLS server-side callbacks for session tickets."
+	depends on (MBEDTLS_CIPHER_C || MBEDTLS_USE_PSA_CRYPTO) && \
+				(MBEDTLS_GCM_C || MBEDTLS_CCM_C || MBEDTLS_CHACHAPOLY_C)
+	default y
+
+config MBEDTLS_THREADING_C
+	bool "Enable the threading abstraction layer."
+	default n
+
+config MBEDTLS_VERSION_C
+	bool "Enable run-time version information."
+	default y
+
+config MBEDTLS_X509_CRL_PARSE_C
+	bool "Enable X.509 CRL parsing."
+	default y
+
+config MBEDTLS_SSL_TLS1_3_TICKET_AGE_TOLERANCE
+	int "Maximum time difference in milliseconds tolerated between the age of a ticket from the server and client point of view."
+	default 6000
+
+config MBEDTLS_SSL_TLS1_3_TICKET_NONCE_LENGTH
+	int "Size in bytes of a ticket nonce."
+	default 32
+
+config MBEDTLS_SSL_TLS1_3_DEFAULT_NEW_SESSION_TICKETS
+	int "Default number of NewSessionTicket messages to be sent by a TLS 1.3 server after handshake completion."
+	default 1
+
+if CRYPTO_CRYPTODEV
+
+config MBEDTLS_ALT
+	bool
+	default n
+	---help---
+		Enable Mbed TLS alted by nuttx crypto via /dev/crypto
+
+config MBEDTLS_AES_ALT
+	bool "Enable Mbedt TLS AES module alted by nuttx crypto"
+	select MBEDTLS_ALT
+	default n
+
+config MBEDTLS_MD5_ALT
+	bool "Enable Mbedt TLS MD5 module alted by nuttx crypto"
+	select MBEDTLS_ALT
+	default n
+
+config MBEDTLS_SHA1_ALT
+	bool "Enable Mbedt TLS SHA1 module alted by nuttx crypto"
+	select MBEDTLS_ALT
+	default n
+
+config MBEDTLS_SHA256_ALT
+	bool "Enable Mbedt TLS SHA224/SHA256 module alted by nuttx crypto"
+	select MBEDTLS_ALT
+	default n
+
+config MBEDTLS_SHA512_ALT
+	bool "Enable Mbedt TLS SHA384/SHA512 module alted by nuttx crypto"
+	select MBEDTLS_ALT
+	default n
+
+endif # CRYPTO_CRYPTODEV
+
+menuconfig MBEDTLS_APPS
+	tristate "Mbed TLS Applications"
+	default n
+	---help---
+		Enable Mbed TLS Applications
+
+if MBEDTLS_APPS
+
+config MBEDTLS_DEFAULT_TASK_STACKSIZE
+	int "Mbed TLS app default stack size"
+	default 8192
+
+config MBEDTLS_APP_BENCHMARK
+	bool "Mbed TLS benchmark"
+	default n
+	---help---
+		Enable the Mbed TLS self test
+
+if MBEDTLS_APP_BENCHMARK
+
+config MBEDTLS_APP_BENCHMARK_PROGNAME
+	string "Program name"
+	default "mbedbenchmark"
+	---help---
+		This is the name of the program that will be used when the NSH ELF
+		program is installed.
+
+config MBEDTLS_APP_BENCHMARK_PRIORITY
+	int "Benchmark task priority"
+	default 100
+
+config MBEDTLS_APP_BENCHMARK_STACKSIZE
+	int "Benchmark stack size"
+	default MBEDTLS_DEFAULT_TASK_STACKSIZE
+
+endif # MBEDTLS_APP_BENCHMARK
+
+config MBEDTLS_APP_SELFTEST
+	bool "Mbed TLS Self Test"
+	default n
+	---help---
+		Enable the Mbed TLS self test
+
+if MBEDTLS_APP_SELFTEST
+
+config MBEDTLS_APP_SELFTEST_PROGNAME
+	string "Program name"
+	default "mbedselftest"
+	---help---
+		This is the name of the program that will be used when the NSH ELF
+		program is installed.
+
+config MBEDTLS_APP_SELFTEST_PRIORITY
+	int "Self test task priority"
+	default 100
+
+config MBEDTLS_APP_SELFTEST_STACKSIZE
+	int "Self test stack size"
+	default MBEDTLS_DEFAULT_TASK_STACKSIZE
+
+endif # MBEDTLS_APP_SELFTEST
+
+endif # MBEDTLS_APPS
+
+endif # CRYPTO_MBEDTLS

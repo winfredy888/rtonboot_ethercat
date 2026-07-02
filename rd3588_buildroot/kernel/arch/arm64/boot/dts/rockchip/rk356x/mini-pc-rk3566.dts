@@ -1,0 +1,361 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2020 Rockchip Electronics Co., Ltd.
+ *
+ */
+
+/dts-v1/;
+
+//rk3566-evb1-ddr4-v10
+//#include "rk3566-evb1-ddr4-v10.dtsi"
+
+#include "rk3566-evb-rpdzkj-rk809-tcs4525.dtsi"
+
+
+#include "../rk3568-linux.dtsi"
+/*************************camera***********************/
+#include "rp-mipi-camera-gc2093-rk3566.dtsi"
+/***************************************************/
+
+
+/*************************adc key***********************/
+#include "rp-adc-key.dtsi"
+/***************************************************/
+
+/*************************gmac***********************/
+#include "rp-gmac1-m0-pro-rk3566.dtsi"
+/***************************************************/
+
+
+/****************** SINGLE LCD ***************/
+#include "pro-rk3566-single-lcd-gpio.dtsi"
+
+/* HDMI */
+#include "rp-lcd-hdmi.dtsi"
+
+/* MIPI0 */
+//#include "rp-lcd-mipi0-5-720-1280-v2-boxTP.dtsi"
+//#include "rp-lcd-mipi0-5.5-720-1280.dtsi"
+//#include "rp-lcd-mipi0-5.5-720-1280-v2.dtsi"
+//#include "rp-lcd-mipi0-5.5-1080-1920.dtsi"
+//#include "rp-lcd-mipi0-7-1024-600.dtsi"
+//#include "rp-lcd-mipi0-7-720-1280.dtsi"
+//#include "rp-lcd-mipi0-7-1200-1920.dtsi"
+//#include "rp-lcd-mipi0-8-800-1280.dtsi"
+//#include "rp-lcd-mipi0-8-800-1280-v2.dtsi"
+//#include "rp-lcd-mipi0-8-800-1280-v3.dtsi"
+//#include "rp-lcd-mipi0-8-1200-1920.dtsi"
+//#include "rp-lcd-mipi0-10-800-1280.dtsi"
+//#include "rp-lcd-mipi0-10-800-1280-v2.dtsi"
+//#include "rp-lcd-mipi0-10-800-1280-v3.dtsi"
+//#include "rp-lcd-mipi0-10-1920-1200.dtsi"
+
+/* MIPI1 */
+//#include "rp-lcd-mipi1-7-1024-600.dtsi"
+
+/* LVDS */
+//#include "rp-lcd-lvds-10-1024-600.dtsi"
+//#include "rp-lcd-lvds-7-1024-600-v2.dtsi"
+//#include "rp-lcd-lvds-10-1280-800.dtsi"
+/* EDP */
+//#include "rp-lcd-edp-13-1920-1080.dtsi"
+
+
+
+
+
+
+/ {
+    model = "mini-pc-rk3566";
+    compatible = "rpdzkj,mini-pc-rk3566", "rockchip,rk3566";
+
+        
+        rp_power{
+                status = "okay";
+                compatible = "rp_power";
+                rp_not_deep_sleep = <1>;
+
+//#define GPIO_FUNCTION_OUTPUT 0
+//#define GPIO_FUNCTION_INPUT 1
+//#define GPIO_FUNCTION_IRQ 2
+//#define GPIO_FUNCTION_FLASH 3
+//#define GPIO_FUNCTION_OUTPUT_CTRL 4
+
+                led {       //system led
+                        gpio_num = <&gpio3 RK_PC2 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <3>;
+                };
+                
+                usb_pwr {       //usb host power and otg power
+                        gpio_num = <&gpio0 RK_PA6 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <4>;
+                };
+
+
+                usb_otg_pwr {       //
+                        gpio_num = <&gpio0 RK_PA5 GPIO_ACTIVE_LOW>;
+                        gpio_function = <4>;
+                };
+};
+
+
+
+        rp_gpio{
+                status = "okay";
+                compatible = "rp_gpio";
+                                
+                io4_c4 {       //
+                        gpio_num = <&gpio4 RK_PC4 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+    };
+    
+    fiq-debugger {
+        compatible = "rockchip,fiq-debugger";
+        rockchip,serial-id = <2>;
+        rockchip,wake-irq = <0>;
+        /* If enable uart uses irq instead of fiq */
+        rockchip,irq-mode-enable = <1>;
+        rockchip,baudrate = <115200>;  /* Only 115200 and 1500000 */
+        interrupts = <GIC_SPI 252 IRQ_TYPE_LEVEL_LOW>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&uart2m0_xfer>;
+        status = "okay";
+    };
+    test-power {
+        /** disable for use rk809-battery */
+        status = "okay";
+    };
+};
+
+
+&pmu_io_domains {
+        status = "okay";
+        pmuio2-supply = <&vcc3v3_pmu>;
+        vccio1-supply = <&vccio_acodec>;
+        vccio3-supply = <&vccio_sd>;
+        vccio4-supply = <&vcc_3v3>;
+        vccio5-supply = <&vcc_3v3>;
+        vccio6-supply = <&vcc_1v8>;
+        vccio7-supply = <&vcc_3v3>;
+};
+
+
+&cpu0_opp_table {
+
+        opp-408000000 {
+            opp-hz = /bits/ 64 <408000000>;
+            opp-microvolt = <825000 825000 1150000>;
+            opp-microvolt-L0 = <825000 825000 1150000>;
+            opp-microvolt-L1 = <800000 800000 1150000>;
+            opp-microvolt-L2 = <800000 800000 1150000>;
+            clock-latency-ns = <40000>;
+        };
+        opp-600000000 {
+            opp-hz = /bits/ 64 <600000000>;
+            opp-microvolt = <850000 850000 1150000>;
+            opp-microvolt-L0 = <850000 850000 1150000>;
+            opp-microvolt-L1 = <825000 825000 1150000>;
+            opp-microvolt-L2 = <825000 825000 1150000>;
+            clock-latency-ns = <40000>;
+        };
+        opp-816000000 {
+            opp-hz = /bits/ 64 <816000000>;
+            opp-microvolt = <900000 900000 1150000>;
+            opp-microvolt-L0 = <900000 900000 1150000>;
+            opp-microvolt-L1 = <875000 875000 1150000>;
+            opp-microvolt-L2 = <850000 850000 1150000>;
+            clock-latency-ns = <40000>;
+            opp-suspend;
+        };
+        opp-1104000000 {
+            opp-hz = /bits/ 64 <1104000000>;
+            opp-microvolt = <950000 950000 1150000>;
+            opp-microvolt-L0 = <950000 950000 1150000>;
+            opp-microvolt-L1 = <925000 925000 1150000>;
+            opp-microvolt-L2 = <900000 900000 1150000>;
+            clock-latency-ns = <40000>;
+        };
+        opp-1416000000 {
+            opp-hz = /bits/ 64 <1416000000>;
+            opp-microvolt = <1000000 1000000 1150000>;
+            opp-microvolt-L0 = <1000000 1000000 1150000>;
+            opp-microvolt-L1 = <975000 975000 1150000>;
+            opp-microvolt-L2 = <950000 950000 1150000>;
+            clock-latency-ns = <40000>;
+        };
+        opp-1608000000 {
+            opp-hz = /bits/ 64 <1608000000>;
+            opp-microvolt = <1050000 1050000 1150000>;
+            opp-microvolt-L0 = <1050000 1050000 1150000>;
+            opp-microvolt-L1 = <1025000 1025000 1150000>;
+            opp-microvolt-L2 = <1025000 1025000 1150000>;
+            clock-latency-ns = <40000>;
+        };
+
+        opp-1800000000 {
+            opp-hz = /bits/ 64 <1800000000>;
+            opp-microvolt = <1100000 1100000 1150000>;
+            opp-microvolt-L0 = <1100000 1100000 1150000>;
+            opp-microvolt-L1 = <1075000 1075000 1150000>;
+            opp-microvolt-L2 = <1075000 1075000 1150000>;
+            clock-latency-ns = <40000>;
+        };
+
+
+};
+
+
+&i2c1 {
+    status = "okay";
+};
+
+&i2c4 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c4m1_xfer>;
+
+        rtc@51 {
+                status = "okay";
+                compatible = "rtc,hym8563";
+                reg = <0x51>;
+        };
+};
+
+
+&uart6 {
+        status = "okay";
+        pinctrl-names = "default";
+        pinctrl-0 = <&uart6m0_xfer>;
+};
+
+&uart7 {
+        status = "okay";
+        pinctrl-names = "default";
+        pinctrl-0 = <&uart7m0_xfer>;
+};
+
+&uart9 {
+        status = "okay";
+        pinctrl-names = "default";
+        pinctrl-0 = <&uart9m0_xfer>;
+};
+
+&spi1 {
+    status = "okay";
+
+    spi1_dev@0 {
+        compatible = "rockchip,spidev";
+        reg = <0>;
+        spi-max-frequency = <12000000>;
+        spi-lsb-first;
+    };
+
+};
+
+&spi2 {
+        status = "okay";
+
+    spi2_dev@0 {
+        compatible = "rockchip,spidev";
+        reg = <0>;
+        spi-max-frequency = <12000000>;
+        spi-lsb-first;
+    };
+
+};
+
+&spi3 {
+        status = "okay";
+        
+                pinctrl-names = "default", "high_speed";
+                pinctrl-0 = <&spi3m1_cs0 /*&spi3m1_cs1*/ &spi3m1_pins>;
+                pinctrl-1 = <&spi3m1_cs0 /*&spi3m1_cs1*/ &spi3m1_pins_hs>;
+
+        spi3_dev@0 {
+            compatible = "rockchip,spidev";
+            reg = <0>;
+            spi-max-frequency = <12000000>;
+            spi-lsb-first;
+    };
+
+};
+
+&edp {
+    /** delete hdp gpio that pro3566 donot use */
+    /delete-property/ hpd-gpios;
+};
+
+&dmc {
+    status = "disabled";
+};
+
+&dfi {
+    status = "disabled";
+};
+
+
+
+&sdmmc2 {
+    max-frequency = <150000000>;
+    supports-sdio;
+    bus-width = <4>;
+    disable-wp;
+    cap-sd-highspeed;
+    cap-sdio-irq;
+    keep-power-in-suspend;
+    mmc-pwrseq = <&sdio_pwrseq>;
+    non-removable;
+    pinctrl-names = "default";
+    pinctrl-0 = <&sdmmc2m0_bus4 &sdmmc2m0_cmd &sdmmc2m0_clk>;
+    sd-uhs-sdr104;
+    status = "okay";
+};
+
+&uart1 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart1m1_xfer &uart1m1_ctsn>;
+};
+
+
+&wireless_bluetooth {
+    uart_rts_gpios = <&gpio4 RK_PB6 GPIO_ACTIVE_LOW>;
+    pinctrl-names = "default", "rts_gpio";
+    pinctrl-0 = <&uart1m1_rtsn>;
+    pinctrl-1 = <&uart1_gpios>;
+    BT,reset_gpio    = <&gpio4 RK_PA5 GPIO_ACTIVE_HIGH>;
+    BT,wake_gpio     = <&gpio4 RK_PA6 GPIO_ACTIVE_HIGH>;
+    BT,wake_host_irq = <&gpio4 RK_PB1 GPIO_ACTIVE_HIGH>;
+    status = "okay";
+};
+
+&wireless_wlan {
+    pinctrl-names = "default";
+    pinctrl-0 = <&wifi_host_wake_irq>;
+    WIFI,host_wake_irq = <&gpio3 RK_PD4 GPIO_ACTIVE_HIGH>;
+};
+
+
+        
+&rk_headset {
+        status = "okay";
+        headset_force_flag = <1>;
+    };
+
+
+
+&pinctrl {  
+    
+    wireless-wlan {
+        wifi_host_wake_irq: wifi-host-wake-irq {
+            rockchip,pins = <3 RK_PD4 RK_FUNC_GPIO &pcfg_pull_down>;
+        };
+    };
+
+    wireless-bluetooth {
+        uart1_gpios: uart1-gpios {
+            rockchip,pins = <4 RK_PB6 RK_FUNC_GPIO &pcfg_pull_none>;
+        };
+    };
+};

@@ -1,0 +1,1 @@
+int motorctl_main(int argc, char *argv[]);

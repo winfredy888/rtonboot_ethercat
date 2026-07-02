@@ -1,0 +1,356 @@
+/****************************************************************************
+ * apps/testing/osperf/osperf.c
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.  The
+ * ASF licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ ****************************************************************************/
+
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
+
+#include <assert.h>
+#include <limits.h>
+#include <pthread.h>
+#include <sched.h>
+#include <semaphore.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/param.h>
+#include <sys/poll.h>
+
+#include <nuttx/sched.h>
+#include <nuttx/kthread.h>
+
+#include "../common/arm64_internal.h"
+#include "../common/arm64_arch.h"
+#include "../common/arm64_gic.h"
+
+
+#include <nuttx/semaphore.h>
+
+#include "../../../../drivers/ethercat/master/mempool.h"
+
+#include "ectimer.h"
+
+#define CONFIG_ARM_TIMER_VIRTUAL_IRQ        (GIC_PPI_INT_BASE + 11)
+#define ARM_ARCH_TIMER_IRQ     CONFIG_ARM_TIMER_VIRTUAL_IRQ
+
+#define EC_TIMER_BASE      0xFE5F0080
+
+#define PERF_TIMER_IRQ 145
+
+#define TIMER_CTRL		0x10
+#define TIMER_LOAD_COUNT0	0x00
+#define TIMER_LOAD_COUNT1	0x04
+#define TIMER_CURRENT_VALUE0	0x08
+#define TIMER_CURRENT_VALUE1	0x0C
+#define TIMER_INTSTATUS		0x18
+
+#define MYBIT(x) (1<<(x))
+
+#define TIMER_EN		MYBIT(0)
+#define TIMER_UD		MYBIT(1)
+#define TIMER_INT_EN		MYBIT(2)
+#define TIMER_CLR_INT		MYBIT(0)
+
+uint32_t g_ec_timer_base = EC_TIMER_BASE;
+
+spinlock_t time_get_lock;
+
+uint64_t start_us = 0ULL;
+
+uint64_t next_expire_us = 0ULL;
+
+extern int linux_printf(const char *fmt, ...);
+
+#define printf linux_printf
+
+struct list_head ec_usleep_list_head;
+
+mutex_t g_ec_usleep_lock = NXMUTEX_INITIALIZER;
+
+int volatile is_in_isr = 0;
+
+extern int volatile is_in_arch_isr;
+
+void my_arm64_arch_timer_enable(bool enable)
+{
+  uint64_t value;
+
+  value = read_sysreg(cntv_ctl_el0);
+
+  if (enable)
+    {
+      value |= CNTV_CTL_ENABLE_BIT;
+    }
+  else
+    {
+      value &= ~CNTV_CTL_ENABLE_BIT;
+    }
+
+  write_sysreg(value, cntv_ctl_el0);
+}
+
+void my_arm64_arch_timer_set_compare(uint64_t value)
+{
+  write_sysreg(value, cntv_cval_el0);
+}
+
+uint64_t my_arm64_arch_timer_count(void)
+{
+  return read_sysreg(cntvct_el0);
+}
+
+uint64_t my_arm64_arch_timer_get_cntfrq(void)
+{
+  return read_sysreg(cntfrq_el0);
+}
+
+void my_arm64_arch_timer_set_irq_mask(bool mask)
+{
+  uint64_t value;
+
+  value = read_sysreg(cntv_ctl_el0);
+
+  if (mask)
+    {
+      value |= CNTV_CTL_IMASK_BIT;
+    }
+  else
+    {
+      value &= ~CNTV_CTL_IMASK_BIT;
+    }
+
+  write_sysreg(value, cntv_ctl_el0);
+}
+
+
+int my_arm64_arch_timer_compare_isr(int irq, void *regs, void *arg)
+{
+  my_arm64_arch_timer_set_irq_mask(true);
+
+  return OK;
+}
+
+
+void ec_timer_init(void)
+{
+	INIT_LIST_HEAD(&ec_usleep_list_head);
+}	
+
+extern uint64_t ec_perf_cur_ns(void);	
+
+int is_enable = 0;
+
+void ec_timer_usleep(uint64_t us)
+{
+  uint64_t ns;
+  struct ec_usleep_item * p_item;
+  uint64_t temp;
+  int is_enable_irq;
+  
+  if(!is_enable)
+  {
+	  is_enable = 1;
+	  
+	  up_enable_irq(ARM_ARCH_TIMER_IRQ);
+	  		
+	  spin_lock_init(&time_get_lock);
+  }
+  
+  ns = ec_perf_cur_ns();
+  
+  start_us = ns / 1000;
+	  
+  ns -= (start_us * 1000);
+	  
+  if(ns > 500)
+  {
+		++start_us;
+  }
+  
+  p_item = (struct ec_usleep_item *)( AllocateECUsleepBlock() );
+     
+  DEBUGASSERT(p_item != NULL);
+  
+  nxsem_init( &(p_item->ec_usleep_sem), 0, 0);
+  
+  p_item->expire_us = start_us + us;
+  
+  while(is_in_isr)
+  {
+  };
+	
+  list_add_tail(&(p_item->ec_usleep_list), &ec_usleep_list_head);
+  
+  is_enable_irq = 0;
+  
+  if(!next_expire_us)
+  {
+	  next_expire_us = p_item->expire_us;
+	  
+	  is_enable_irq = 1; 
+  }
+  else
+  {
+	  if( (p_item->expire_us) < next_expire_us)
+	  {
+		  if( (next_expire_us - (p_item->expire_us)) >= 2)
+		  {
+			  my_arm64_arch_timer_set_irq_mask(true);
+			  
+			  next_expire_us = p_item->expire_us;
+					
+			  temp = p_item->expire_us - start_us;
+					
+			  temp *= 1000ULL;
+					
+			  temp /= 41;
+			  
+			  temp += my_arm64_arch_timer_count();
+			  
+			  my_arm64_arch_timer_set_compare(temp);
+			  my_arm64_arch_timer_set_irq_mask(false);
+		  }	  
+	  }	   
+  }	 
+  
+  if(is_enable_irq)
+  {	
+	  my_arm64_arch_timer_set_irq_mask(true);
+	   		
+	  temp = (us * 1000ULL);
+					
+	  temp /= 41;
+	  
+	  temp += my_arm64_arch_timer_count();
+	  
+	  my_arm64_arch_timer_set_compare(temp);
+	  my_arm64_arch_timer_set_irq_mask(false);
+  }	   
+  
+  nxsem_wait( &(p_item->ec_usleep_sem) );
+  
+  FreeECUsleepBlock(p_item);
+}
+
+int dummy_ec_timer_isr(int irq, void *regs, void *arg)
+{  
+  putreg32( TIMER_CLR_INT, g_ec_timer_base + TIMER_INTSTATUS);
+  
+  return OK;
+}  
+
+int ec_timer_isr(int irq, void *regs, void *arg)
+{
+  struct list_head * p_head;
+  struct list_head * pTemp;
+  struct list_head * pTempBak;
+  struct ec_usleep_item * p_item;
+  uint64_t temp_next;
+  uint64_t temp;
+  
+  is_in_isr = 1;
+  
+  my_arm64_arch_timer_set_irq_mask(true);
+  
+  linux_printf("vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n");
+    
+  if(!is_enable)
+  {
+	  is_in_isr = 0;
+  
+	  return OK;
+  }	  
+  
+  p_head = &(ec_usleep_list_head);
+		
+  if(list_empty(p_head))
+  {
+	    next_expire_us = 0ULL;
+	    
+	    goto ec_return;
+  }
+  		
+  for(pTemp = p_head->next; pTemp != p_head; pTemp = pTempBak)
+  {
+		pTempBak = pTemp->next;
+		
+		p_item = (struct ec_usleep_item *)pTemp;
+		
+		if( (p_item->expire_us) <= next_expire_us)
+		{
+			list_del(&(p_item->ec_usleep_list));	
+			
+			nxsem_post( &(p_item->ec_usleep_sem) );
+		}	
+  }
+  
+  if(list_empty(p_head))
+  {
+	    next_expire_us = 0ULL;
+	    
+	    goto ec_return;
+  }
+  
+  temp_next = 0ULL;
+  
+  for(pTemp = p_head->next; pTemp != p_head; pTemp = pTempBak)
+  {
+		pTempBak = pTemp->next;
+		
+		p_item = (struct ec_usleep_item *)pTemp;
+		
+		if(!temp_next)
+		{
+			temp_next = p_item->expire_us;
+		}
+		else if( (p_item->expire_us) < temp_next)
+		{
+			temp_next = p_item->expire_us;
+		}	
+  }
+  
+  if(!temp_next)
+		goto ec_return;
+		
+  my_arm64_arch_timer_set_irq_mask(true);		
+  
+  temp = temp_next - next_expire_us;
+  
+  next_expire_us = temp_next;
+  
+  temp *= 1000ULL;
+					
+  temp /= 41;
+  
+  temp += my_arm64_arch_timer_count();
+	  
+  my_arm64_arch_timer_set_compare(temp);
+  my_arm64_arch_timer_set_irq_mask(false);
+  
+  ec_return:
+  
+    is_in_isr = 0;
+  
+	return OK;
+}
+

@@ -1,0 +1,3 @@
+RK_WIFIBT_CHIP="AP6212A1"
+RK_KERNEL_DTS_NAME="rk3326-evb-lp3-v10-linux"
+RK_KERNEL_CFG="rockchip_linux_defconfig"

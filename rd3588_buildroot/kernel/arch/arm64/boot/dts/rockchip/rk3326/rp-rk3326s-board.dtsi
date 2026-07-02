@@ -1,0 +1,179 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2017 Fuzhou Rockchip Electronics Co., Ltd
+ */
+
+#include <dt-bindings/display/drm_mipi_dsi.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/pinctrl/rockchip.h>
+#include <dt-bindings/sensor-dev.h>
+
+/ {
+
+	vccsys: vccsys {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc3v8_sys";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <3800000>;
+		regulator-max-microvolt = <3800000>;
+	};
+	
+	vcc18_lcd_n: vcc18-lcd-n {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc18_lcd_n";
+		regulator-boot-on;
+		gpio = <&gpio0 RK_PC0 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-state-mem {
+			regulator-off-in-suspend;
+		};
+	};
+	
+	rpdzkj:rpdzkj_config {
+        compatible = "rp_config";
+        user_version = "rpdzkj";
+        system_rotate = "0";
+        csi_camera_rotate = "0"; //all csi camera rotation //0 90 180 270 //no effect
+        csi_camera_facing = "0"; //0:auto  1:all front   2:all back //no effect
+        usb_camera_rotate = "0"; //all usb camera rotation //0 90 180 270 
+        usb_camera_facing = "0"; //0:auto  1:all front   2:all back
+        lcd_density = "160";
+        language = "zh-CN";   //zh-CN //en-US
+        time_zone = "Asia/Shanghai"; //Asia/Shanghai = +8   //Europe/London  = +1       //Africa/Casablanca     = +0;
+        not_navigation_bar = "false";
+        not_status_bar = "false";
+        default_launcher = "true";
+        has_root = "true";
+        usb_not_permission = "true";
+        gps_use = "false";
+        gps_serial_port = "/dev/ttyS0";
+        primary_device = "DSI";
+        extend_device = "HDMI-A";
+        extend_rotate = "0";//0 0//1 90 //2 180 //3 270
+        rotation_efull = "true";
+        extend_rotate_2 = "0";//0 0//1 90 //2 180 //3 270
+        rotation_efull_2 = "true";
+        extend_rotate_3 = "0";//0 0//1 90 //2 180 //3 270
+        rotation_efull_3 = "true";
+        home_apk = "null";
+        status = "okay";
+	};
+
+};
+
+&bus_apll {
+	bus-supply = <&vdd_logic>;
+	status = "okay";
+};
+
+&cpu0 {
+	cpu-supply = <&vdd_arm>;
+};
+
+&display_subsystem {
+	status = "okay";
+};
+
+&dfi {
+	status = "okay";
+};
+
+&dmc {
+	center-supply = <&vdd_logic>;
+	status = "okay";
+};
+
+&emmc {
+	bus-width = <8>;
+	cap-mmc-highspeed;
+	mmc-hs200-1_8v;
+	no-sdio;
+	no-sd;
+	disable-wp;
+	non-removable;
+	num-slots = <1>;
+	status = "okay";
+};
+
+&gpu {
+	mali-supply = <&vdd_logic>;
+	status = "okay";
+};
+
+&nandc0 {
+	status = "okay";
+};
+
+&rk_rga {
+	status = "okay";
+};
+
+&rockchip_suspend {
+	status = "okay";
+	rockchip,sleep-debug-en = <1>;
+};
+
+&saradc {
+	status = "okay";
+	vref-supply = <&vcc1v8_soc>;
+};
+
+&sdmmc {
+	bus-width = <4>;
+	cap-mmc-highspeed;
+	cap-sd-highspeed;
+	no-sdio;
+	no-mmc;
+	card-detect-delay = <800>;
+	ignore-pm-notify;
+	/*cd-gpios = <&gpio2 4 GPIO_ACTIVE_HIGH>; [> CD GPIO <]*/
+	sd-uhs-sdr12;
+	sd-uhs-sdr25;
+	sd-uhs-sdr50;
+	sd-uhs-sdr104;
+	vqmmc-supply = <&vccio_sd>;
+	vmmc-supply = <&vcc_sd>;
+	status = "disabled";
+};
+
+&tsadc {
+	pinctrl-names = "gpio", "otpout";
+	pinctrl-0 = <&tsadc_otp_pin>;
+	pinctrl-1 = <&tsadc_otp_out>;
+	status = "okay";
+};
+
+&vopb {
+	status = "okay";
+};
+
+&vopb_mmu {
+	status = "okay";
+};
+
+&mpp_srv {
+	status = "okay";
+};
+
+&vdpu {
+	status = "okay";
+};
+
+&vepu {
+	status = "okay";
+};
+
+&vpu_mmu {
+	status = "okay";
+};
+
+&hevc {
+	status = "okay";
+};
+
+&hevc_mmu {
+	status = "okay";
+};
+

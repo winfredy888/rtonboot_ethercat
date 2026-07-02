@@ -1,0 +1,5 @@
+config BR2_PACKAGE_APP_SIMPLETEST
+	bool "simpletest"
+	help
+	  Winfred Young simpletest command
+	  

@@ -1,0 +1,20 @@
+ 
+/ {
+    rpdzkj:rpdzkj_config {
+        compatible = "rp_config";
+
+        lcd_device0 = "DSI-1";
+        lcd_rotate0 = "0";
+
+        lcd_device1 = "HDMI-1";
+        lcd_rotate1 = "0";
+
+        lcd_device2 = "HDMI-2";
+        lcd_rotate2 = "0";
+
+        lcd_device3 = "DP-1";
+        lcd_rotate3 = "0";
+
+        status = "okay";
+    };
+};

@@ -1,0 +1,29 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config OPENAMP
+	bool "Open Asymmetric Multi Processing support"
+	default n
+	---help---
+		Enable or disable Open Asymmetric Multi Processing features
+
+if OPENAMP
+
+config OPENAMP_CACHE
+	bool "Enable OpenAMP Cache support"
+	default n
+	---help---
+		Enable or disable OpenAMP Cache support (VIRTIO_CACHED_BUFFERS and
+		VIRTIO_CACHED_VRINGS)
+
+config OPENAMP_RPMSG_DEBUG
+	bool "Enable OpenAMP Rpmsg Debug"
+	default n
+
+config OPENAMP_VQUEUE_DEBUG
+	bool "Enable OpenAMP Virtio Queue Debug"
+	default n
+
+endif # OPENAMP

@@ -1,0 +1,295 @@
+/* board base */
+//#include "../rk3588-evb4-lp4-v10-linux.dts"
+#include "rp-rk3588-board.dtsi"
+
+#include "rp-tp-i2c6-gt911.dtsi"
+#include "rd-rk3588-lcd-gpio.dtsi"
+#include "rpdzkj_config.dtsi"
+
+/* usb */
+#include "rp-usb-typea-rk3588.dtsi"
+#include "rp-usb-host.dtsi"
+
+/* ethernet */
+#include "rp-eth-pcie2gmac-rk3588.dtsi"
+#include "rp-eth-gmac1.dtsi"
+
+/* pcie */
+#include "rp-pcie-power-rk3588.dtsi"
+#include "rp-pcie-5g.dtsi"
+
+/* audio */
+#include "rp-audio-rt5640.dtsi"
+
+/* wifi/bt */
+#include "rp-wifi-bt-ap6275p-rk3588.dtsi"
+
+
+/* camera */
+//#include "rp-camera-dual-ov13855.dtsi"
+
+
+#include "rp-lcd-hdmi0.dtsi"
+
+/* lcd */
+#include "rp-lcd-mipi0-5-720-1280-v2-boxTP.dtsi"
+//#include "rp-lcd-mipi0-7-720-1280.dtsi"
+//#include "rp-lcd-mipi0-8-800-1280-v3.dtsi"
+//#include "rp-lcd-mipi0-8-1200-1920.dtsi"
+//#include "rp-lcd-mipi0-10-800-1280-v3.dtsi"
+//#include "rp-lcd-mipi0-10-1200-1920.dtsi"
+//#include "rp-lcd-box-edp1-13.3-15.6-1920-1080.dtsi"
+//#include "rp-lcd-mipi1-gm8775-lvds-21-1920-1080.dtsi"
+//#include "rp-lcd-mipi1-gm8775-lvds-10.1-1024-600.dtsi"
+
+
+/* quadplex lcd */
+//#include "rp-lcd-quadplex-mipi0-5-720-1280-v2-boxTP-mipi1-gm8775-lvds-10.1-1024-600-hdmi0-edp1.dtsi"
+
+
+/ {
+    model = "rd-box-rk3588";
+    reserved-memory {
+        #address-cells = <2>;
+        #size-cells = <2>;
+        ranges;
+        dma_trans: dma-trans@3c000000 {
+            reg = <0x0 0x3c000000 0x0 0x04000000>;
+        };
+    };
+
+    vcc_1v1_nldo_s3: vcc-1v1-nldo-s3 {
+        compatible = "regulator-fixed";
+        regulator-name = "vcc_1v1_nldo_s3";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <1100000>;
+        regulator-max-microvolt = <1100000>;
+        vin-supply = <&vcc5v0_sys>;
+    };
+
+	fan_gpio_control {
+            compatible = "fan_gpio_control";
+            gpio-pin = <&gpio4 RK_PA7 GPIO_ACTIVE_HIGH>;
+            thermal-zone = "soc-thermal";
+    	    threshold-temp = <60000>; //60C
+	        running-time = <10000>; //10s
+
+            status = "okay";
+        };
+
+        rp_power{
+                status = "okay";
+                compatible = "rp_power";
+                rp_not_deep_sleep = <1>;
+
+//#define GPIO_FUNCTION_OUTPUT 0
+//#define GPIO_FUNCTION_INPUT 1
+//#define GPIO_FUNCTION_IRQ 2
+//#define GPIO_FUNCTION_FLASH 3
+//#define GPIO_FUNCTION_OUTPUT_CTRL 4
+
+                //fan {   
+                //        gpio_num = <&gpio4 RK_PA7 GPIO_ACTIVE_HIGH>;
+                //        gpio_function = <4>;
+                //};
+
+                led {  
+                        gpio_num = <&gpio4 RK_PA6 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <3>;
+                };
+
+                usb-host-power {  
+                        gpio_num = <&gpio2 RK_PC1 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <4>;
+                };
+
+                otg-power {
+                      gpio_num = <&gpio1 RK_PA2 GPIO_ACTIVE_HIGH>;
+                      gpio_function = <4>;
+                };
+ 
+                usb-hub-reset {  
+                        gpio_num = <&gpio3 RK_PB2 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <4>;
+                };
+    };
+
+        rp_gpio{
+                status = "okay";
+                compatible = "rp_gpio";
+
+                gpio3c7 {  
+                        gpio_num = <&gpio3 RK_PC7 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+                gpio0d3 {
+                  gpio_num = <&gpio0 RK_PD3 GPIO_ACTIVE_HIGH>;
+                  gpio_function = <0>;
+                };
+      
+                gpio3c4 {
+                  gpio_num = <&gpio3 RK_PC4 GPIO_ACTIVE_HIGH>;
+                  gpio_function = <0>;
+                };
+
+                gpio3c5 {
+                  gpio_num = <&gpio3 RK_PC5 GPIO_ACTIVE_HIGH>;
+                  gpio_function = <0>;
+                };
+
+                gpio3d5 {
+                  gpio_num = <&gpio3 RK_PD5 GPIO_ACTIVE_HIGH>;
+                  gpio_function = <0>;
+                };
+
+                gpio4b2 {
+                  gpio_num = <&gpio4 RK_PB2 GPIO_ACTIVE_HIGH>;
+                  gpio_function = <0>;
+                };
+
+                gpio4b3 {
+                  gpio_num = <&gpio4 RK_PB3 GPIO_ACTIVE_HIGH>;
+                  gpio_function = <0>;
+                };
+/*** already use for spi0
+                gpio3d1 {
+                  gpio_num = <&gpio3 RK_PD1 GPIO_ACTIVE_HIGH>;
+                  gpio_function = <0>;
+                };
+
+                gpio3d3 {
+                  gpio_num = <&gpio3 RK_PD3 GPIO_ACTIVE_HIGH>;
+                  gpio_function = <0>;
+                };
+
+                gpio3d2 {
+                  gpio_num = <&gpio3 RK_PD2 GPIO_ACTIVE_HIGH>;
+                  gpio_function = <0>;
+                };
+
+                gpio3d4 {
+                  gpio_num = <&gpio3 RK_PD4 GPIO_ACTIVE_HIGH>;
+                  gpio_function = <0>;
+              };
+***/
+        };
+
+	rp-keys {
+		compatible = "rp-keys";
+		status = "disabled";
+		label = "rp_gpiokeys";
+
+		gpio4b3 {
+			gpios = <&gpio4 RK_PB3 GPIO_ACTIVE_LOW>;
+		};
+        gpio0d3 {
+		    label = "gpio0d3_key";
+		    gpios = <&gpio0 RK_PD3 GPIO_ACTIVE_LOW>;
+		    wakeup;
+		    debounce_interval = <10>;
+		    press_type = <0>;
+		    code = <KEY_ENTER>;
+		};
+	};
+
+    stm706 {
+                status = "okay";
+                compatible = "stm706";
+                reset_gpio = <&gpio1 RK_PB1 GPIO_ACTIVE_HIGH>;
+                wdt_gpio = <&gpio1 RK_PB2 GPIO_ACTIVE_HIGH>;
+        };
+};
+
+
+&uart0 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart0m0_xfer>;
+};
+
+&uart6 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart6m0_xfer>;
+};
+
+&uart7 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart7m1_xfer>;
+};
+
+&uart8 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart8m0_xfer>;
+};
+
+&can0 {
+    assigned-clocks = <&cru CLK_CAN0>;
+    assigned-clock-rates = <200000000>;
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&can0m0_pins>;
+};
+
+
+&i2c3{
+    status="okay";
+};
+
+&i2c4 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c4m1_xfer>;
+
+    hym8563: hym8563@51 {
+        compatible = "haoyu,hym8563";
+        reg = <0x51>;
+        #clock-cells = <0>;
+        clock-frequency = <32768>;
+        clock-output-names = "hym8563";
+        //pinctrl-names = "default";
+        //pinctrl-0 = <&hym8563_int>;
+        //interrupt-parent = <&gpio0>;
+        //interrupts = <RK_PD4 IRQ_TYPE_LEVEL_LOW>;
+        //wakeup-source;
+    };
+
+};
+
+&spi0 {
+    status = "okay";
+    pinctrl-0 = <&spi0m3_cs0 &spi0m3_pins>;
+    num-cs = <1>;
+    spidev@0 {
+        status = "okay";
+        compatible = "rockchip,spidev";
+        reg = <0>;
+        spi-max-frequency = <12000000>;
+        spi-lsb-first;
+    };
+};
+
+&sdmmc {
+    status = "okay";
+   // vmmc-supply = <&vccio_sd_s0>;
+};
+
+&fiq_debugger {
+    rockchip,baudrate = <115200>;
+};
+
+&display_subsystem {
+clocks = <&hdptxphy_hdmi_clk0>, <&hdptxphy_hdmi_clk1>;
+clock-names = "hdmi0_phy_pll", "hdmi1_phy_pll";
+};
+
+&hdptxphy_hdmi_clk0 {
+            status = "okay";
+};
+
+&hdptxphy_hdmi_clk1 {
+            status = "okay";
+};

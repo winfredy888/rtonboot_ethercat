@@ -1,0 +1,758 @@
+/** \file
+ * \brief Example code for Simple Open EtherCAT master
+ *
+ * Usage : simple_test [ifname1]
+ * ifname is NIC interface, f.e. eth0
+ *
+ * This is a minimal test.
+ *
+ * (c)Arthur Ketels 2010 - 2011
+ */
+
+#include <stdio.h>
+#include <string.h>
+#include <inttypes.h>
+
+#include "../../../nuttx/libs/libsoem/ethercat.h"
+
+//#undef USE_CSP
+
+#define USE_CSP 1
+
+extern int linux_printf(const char *fmt, ...);
+extern int linux_vprintf(const char *fmt, va_list ap);
+
+#define EC_TIMEOUTMON 500
+
+#define     STATUS_SERVO_ENABLE_BIT           (0x04)
+
+#define     STATUS_TARGET_REACHED_BIT         (0x400)
+
+#define     STATUS_NEWSET_ACK_BIT             (0x1000)
+
+extern int g_motorctl_stop_run;
+
+char IOmap_motorctl[4096];
+
+#ifdef USE_CSP
+
+typedef struct  __attribute__((__packed__))
+{
+	uint16_t cntlwd;
+	uint32_t ipData;
+	uint8_t modeop;
+	uint32_t actpos;
+    uint16_t status;
+    uint32_t actvel;
+}SERVO_DATA_T;
+
+#else
+
+typedef struct  __attribute__((__packed__))
+{
+	uint32_t proacc;
+	uint32_t prodec;
+	uint32_t tarvel;
+	uint32_t tarpos;
+	uint32_t provel;
+	uint16_t cntlwd;
+	uint16_t mottyp;
+	uint8_t modeop;
+	uint32_t actpos;
+	uint32_t actvel;
+	uint16_t status;
+	uint16_t acttor;
+	uint8_t modedp;
+}SERVO_DATA_T;
+
+#endif
+
+typedef struct
+{
+	SERVO_DATA_T servo_data[3];
+}SERVOS_T;
+
+SERVOS_T * servos = (SERVOS_T *)IOmap_motorctl;
+
+OSAL_THREAD_HANDLE thread1_motorctl;
+int expectedWKC_motorctl;
+boolean needlf_motorctl;
+volatile int wkc_motorctl;
+boolean inOP_motorctl;
+uint8 currentgroup_motorctl = 0;
+boolean forceByteAlignment_motorctl = FALSE;
+
+extern uint64_t maincore_arm64_arch_timer_count(void);
+
+extern void append_sleep_lat(uint16_t idx, uint64_t ns);
+
+extern void print_sleep_lat(void);
+
+int safe_SDOwrite(uint16 Slave, uint16 Index, uint8 SubIndex, int size, void *data)
+{
+	int wkc, cnt=0;
+	do{
+		wkc = ec_SDOwrite(Slave, Index, SubIndex, FALSE, size, data, EC_TIMEOUTRXM);
+		cnt++;
+	}while(wkc<=0 && cnt<10);
+	
+	return wkc;
+}
+
+int safe_SDCwrite_b(uint16 Slave, uint16 Index, uint8 SubIndex, uint8 b)
+{
+	return safe_SDOwrite(Slave, Index, SubIndex, 1, &b);
+}
+
+int safe_SDCwrite_w(uint16 Slave, uint16 Index, uint8 SubIndex, uint16 w)
+{
+	return safe_SDOwrite(Slave, Index, SubIndex, 2, &w);
+}
+
+int safe_SDCwrite_dw(uint16 Slave, uint16 Index, uint8 SubIndex, uint32 dw)
+{
+	return safe_SDOwrite(Slave, Index, SubIndex, 4, &dw);
+}
+
+int safe_SDOread(uint16 Slave, uint16 Index, uint8 SubIndex, int size, void *data)
+{
+	int wkc, cnt=0;
+	do{
+		wkc = ec_SDOread(Slave, Index, SubIndex, FALSE, &size, data, EC_TIMEOUTRXM);
+	}while(wkc<=0 && cnt<10);
+	return wkc;
+}
+
+int safe_SDOread_b(uint16 Slave, uint16 Index, uint8 SubIndex, uint8 b)
+{
+	return safe_SDOread(Slave, Index, SubIndex, 1, &b);
+}
+
+int safe_SDOread_w(uint16 Slave, uint16 Index, uint8 SubIndex, uint16 w)
+{
+	return safe_SDOread(Slave, Index, SubIndex, 2, &w);
+}
+
+int safe_SDOread_dw(uint16 Slave, uint16 Index, uint8 SubIndex, uint32 dw)
+{
+	return safe_SDOread(Slave, Index, SubIndex, 4, &dw);
+}
+
+void process_data_config(void)
+{
+	uint8_t ind;
+	
+	#ifdef USE_CSP
+	
+	for(int slave = 1; slave <= *ecx_context.slavecount; slave++)
+	{
+		//rpdo------------
+		//1c12.0
+		safe_SDCwrite_b(slave, 0x1C12, 0, 0);
+		
+		//1600
+		ind = 0;
+		safe_SDCwrite_b(slave, 0x1601, 0, 0);
+		safe_SDCwrite_dw(slave, 0x1601, ++ind, htoel(0x60400010));
+		safe_SDCwrite_dw(slave, 0x1601, ++ind, htoel(0x607a0020));
+		safe_SDCwrite_dw(slave, 0x1601, ++ind, htoel(0x60600008));
+		
+		safe_SDCwrite_b(slave, 0x1601, 0, ind);
+
+		safe_SDCwrite_w(slave, 0x1C12, 1, 0x1601);
+		
+		//1c12.0
+		safe_SDCwrite_b(slave, 0x1C12, 0, 1);
+		
+		//tpdo-------------
+		//1c13.0
+		safe_SDCwrite_b(slave, 0x1C13, 0x00, 0);
+		
+		//1a00
+		ind = 0;
+		safe_SDCwrite_b(slave, 0x1a01, 0, 0);
+		safe_SDCwrite_dw(slave, 0x1a01, ++ind, htoel(0x60640020));
+		safe_SDCwrite_dw(slave, 0x1a01, ++ind, htoel(0x60410010));
+		safe_SDCwrite_dw(slave, 0x1a01, ++ind, htoel(0x606c0020));
+		safe_SDCwrite_b(slave, 0x1a01, 0, ind);
+		
+		safe_SDCwrite_w(slave, 0x1C13, 0x01, 0x1a01);
+
+		//1c13.0
+		safe_SDCwrite_b(slave, 0x1C13, 0, 1);
+		
+		/*safe_SDCwrite_b(slave, 0x6060, 0, 8);
+		safe_SDCwrite_b(slave, 0x60C2, 1, 1);*/
+	}
+	
+	#else
+	
+	for(int slave = 1; slave <= *ecx_context.slavecount; slave++)
+	{
+		//rpdo------------
+		//1c12.0
+		safe_SDCwrite_b(slave, 0x1C12, 0, 0);
+		
+		//1600
+		ind = 0;
+		safe_SDCwrite_b(slave, 0x1601, 0, 0);
+		safe_SDCwrite_dw(slave, 0x1601, ++ind, htoel(0x60830020));
+		safe_SDCwrite_dw(slave, 0x1601, ++ind, htoel(0x60840020));
+		safe_SDCwrite_dw(slave, 0x1601, ++ind, htoel(0x60FF0020));
+		safe_SDCwrite_dw(slave, 0x1601, ++ind, htoel(0x607A0020));
+		safe_SDCwrite_dw(slave, 0x1601, ++ind, htoel(0x60810020));
+		safe_SDCwrite_dw(slave, 0x1601, ++ind, htoel(0x60400010));
+		safe_SDCwrite_dw(slave, 0x1601, ++ind, htoel(0x60860010));
+		safe_SDCwrite_dw(slave, 0x1601, ++ind, htoel(0x60600008));
+		safe_SDCwrite_b(slave, 0x1601, 0, ind);
+
+		safe_SDCwrite_w(slave, 0x1C12, 1, 0x1601);
+		
+		//1c12.0
+		safe_SDCwrite_b(slave, 0x1C12, 0, 1);
+		
+		//tpdo-------------
+		//1c13.0
+		safe_SDCwrite_b(slave, 0x1C13, 0x00, 0);
+		
+		//1a00
+		ind = 0;
+		safe_SDCwrite_b(slave, 0x1a01, 0, 0);
+		safe_SDCwrite_dw(slave, 0x1a01, ++ind, htoel(0x60640020));
+		safe_SDCwrite_dw(slave, 0x1a01, ++ind, htoel(0x606C0020));
+		safe_SDCwrite_dw(slave, 0x1a01, ++ind, htoel(0x60410010));
+		safe_SDCwrite_dw(slave, 0x1a01, ++ind, htoel(0x60770010));
+		safe_SDCwrite_dw(slave, 0x1a01, ++ind, htoel(0x60610008));
+		safe_SDCwrite_b(slave, 0x1a01, 0, ind);
+		
+		safe_SDCwrite_w(slave, 0x1C13, 0x01, 0x1a01);
+
+		//1c13.0
+		safe_SDCwrite_b(slave, 0x1C13, 0, 1);
+	}
+	
+	#endif
+}
+
+int cycle_counter = 0;
+int ecstate = 0;
+int is_op_idle = 0;
+
+uint32_t curpos = 0;
+int is_reach = 0;
+
+void servo_switch_op(void)
+{	
+	uint16_t sts;
+	
+	ecstate++;
+	
+	#ifdef USE_CSP
+        
+	if(ecstate <= 20)
+	{
+		switch (ecstate)
+		{
+			case 3:
+			
+				servos->servo_data[0].cntlwd = 0x80; 
+				servos->servo_data[0].ipData = 0;      
+							
+				break;
+				
+			case 6:
+			
+				servos->servo_data[0].modeop = 8;
+				curpos = servos->servo_data[0].actpos;
+				servos->servo_data[0].ipData = curpos;
+							
+				break;	
+							
+			case 9:
+							
+				curpos = servos->servo_data[0].actpos; 
+				servos->servo_data[0].ipData = curpos;
+							
+				break;
+							
+			case 11:
+							
+				servos->servo_data[0].cntlwd = 0x06;
+				curpos = servos->servo_data[0].actpos; 
+				servos->servo_data[0].ipData = curpos;
+							
+				break;
+							
+			case 13:
+							
+				servos->servo_data[0].cntlwd = 0x07;
+				curpos = servos->servo_data[0].actpos; 
+				servos->servo_data[0].ipData = curpos;
+                    
+				break;
+								
+			case 15:
+							
+				servos->servo_data[0].cntlwd = 0x0F;
+				curpos = servos->servo_data[0].actpos; 
+				servos->servo_data[0].ipData = curpos;
+								
+			break;
+							
+			/*case 17:
+							
+				servos->servo_data[0].cntlwd = 0x1F;
+								
+				break;	*/
+		};
+	}
+	else 
+	{
+		if(!is_op_idle)
+		{		
+			sts = servos->servo_data[0].status;
+					
+			if((sts & (STATUS_SERVO_ENABLE_BIT)) == 0)
+			{
+				return;
+			}
+			
+			ecstate = 0;
+			
+			is_op_idle = 1;
+					
+			linux_printf("IDLE\n");	
+		}
+		else
+		{
+			if (!(cycle_counter % 1000)) 
+			{
+					linux_printf("curpos = %d\t", curpos);
+					linux_printf("actpos... %d\t", servos->servo_data[0].actpos);
+			}
+			
+			servos->servo_data[0].cntlwd = 0x0f;
+			
+			curpos = servos->servo_data[0].actpos;
+			
+			curpos += 100;
+				
+			servos->servo_data[0].ipData = curpos;
+			
+			servos->servo_data[0].modeop = 8;
+		}	
+	}
+	
+	#else
+	
+	if(ecstate <= 20)
+	{
+		switch (ecstate)
+		{
+			case 3:
+			
+				servos->servo_data[0].cntlwd = 0x80;  
+							
+				break;
+				
+			case 6:
+			
+				servos->servo_data[0].modeop = 1;
+				curpos = servos->servo_data[0].actpos;
+				curpos += 10000;
+				servos->servo_data[0].tarpos = curpos;
+				servos->servo_data[0].provel = 20000;
+				servos->servo_data[0].proacc = 200;
+				servos->servo_data[0].prodec = 200;
+					
+				is_reach = 1;	
+							
+				break;
+							
+			case 11:
+							
+				servos->servo_data[0].cntlwd = 0x06;
+							
+				break;
+							
+			case 13:
+							
+				servos->servo_data[0].cntlwd = 0x07;
+                    
+				break;
+								
+			case 15:
+							
+				servos->servo_data[0].cntlwd = 0x0F;
+								
+			break;
+							
+			/*case 17:
+							
+				servos->servo_data[0].cntlwd = 0x1F;
+								
+				break;	*/
+		};
+	}
+	else 
+	{
+		if(!is_op_idle)
+		{				
+			sts = servos->servo_data[0].status;
+					
+			if((sts & (STATUS_SERVO_ENABLE_BIT)) == 0)
+			{
+				return;
+			}
+			
+			is_op_idle = 1;
+					
+			linux_printf("IDLE\n");	
+		}
+		else
+		{
+			/*if (ecstate > 100)*/
+			/*if(1)
+			{
+				if (ecstate % 300 == 0)
+					 servos->servo_data[0].cntlwd = 0xB;
+					 
+				if ((ecstate % 300 == 5) && (ecstate % 600 != 5))
+				{
+					servos->servo_data[0].tarpos  = 0x11111111;
+				}
+				else if (ecstate % 600 == 5)
+				{
+					servos->servo_data[0].tarpos = 0xEEEEEEEF;
+				}
+				else
+				{
+			    }
+			    
+				if (ecstate % 300 == 6)
+				{
+					servos->servo_data[0].cntlwd = 0x7F;
+				}
+				
+			}*/
+			
+			if(is_reach)
+			{
+				sts = servos->servo_data[0].status;
+					
+				if((sts & (STATUS_TARGET_REACHED_BIT)))
+				{
+					linux_printf("reach\n");
+				
+					curpos += 10000;
+					servos->servo_data[0].tarpos = curpos;
+					
+					servos->servo_data[0].cntlwd = 0x3B;
+					
+					is_reach = 0;
+				}
+			}
+			else
+			{
+				sts = servos->servo_data[0].status;
+					
+				if((sts & (STATUS_NEWSET_ACK_BIT)))
+				{
+					linux_printf("newset\n");
+				
+					/*servos->servo_data[0].cntlwd = 0x0B;*/
+					
+					is_reach = 1;
+				}
+			}	
+		}
+	}		
+		
+	#endif
+}	
+
+void servo_switch_idle(void)
+{
+	for(int slave = 1; slave <= *ecx_context.slavecount; slave++)
+	{
+		servos->servo_data[slave-1].cntlwd = 0x0;
+	}
+}
+
+void adsa2_run(char *ifname)
+{
+    int i, oloop, iloop, chk;
+    needlf_motorctl = FALSE;
+    inOP_motorctl = FALSE;
+
+   linux_printf("Starting simple test\n");
+
+   /* initialise SOEM, bind socket to ifname */
+   if (ec_init(ifname))
+   {
+      linux_printf("ec_init on %s succeeded.\n",ifname);
+      /* find and auto-config slaves */
+
+
+      if ( ec_config_init(FALSE) > 0 )
+      {
+         linux_printf("%d slaves found and configured.\n",ec_slavecount);
+         
+         process_data_config();
+
+         if (forceByteAlignment_motorctl)
+         {
+            ec_config_map_aligned(&IOmap_motorctl);
+         }
+         else
+         {
+            ec_config_map(&IOmap_motorctl);
+         }
+
+         ec_configdc();
+
+         linux_printf("Slaves mapped, state to SAFE_OP.\n");
+         /* wait for all slaves to reach SAFE_OP state */
+         ec_statecheck(0, EC_STATE_SAFE_OP,  EC_TIMEOUTSTATE * 4);
+
+         oloop = ec_slave[0].Obytes;
+         if ((oloop == 0) && (ec_slave[0].Obits > 0)) oloop = 1;
+         if (oloop > 8) oloop = 8;
+         iloop = ec_slave[0].Ibytes;
+         if ((iloop == 0) && (ec_slave[0].Ibits > 0)) iloop = 1;
+         if (iloop > 8) iloop = 8;
+
+         linux_printf("segments : %d : %d %d %d %d\n",ec_group[0].nsegments ,ec_group[0].IOsegment[0],ec_group[0].IOsegment[1],ec_group[0].IOsegment[2],ec_group[0].IOsegment[3]);
+
+         linux_printf("Request operational state for all slaves\n");
+         expectedWKC_motorctl = (ec_group[0].outputsWKC * 2) + ec_group[0].inputsWKC;
+         linux_printf("Calculated workcounter %d\n", expectedWKC_motorctl);
+         ec_slave[0].state = EC_STATE_OPERATIONAL;
+         /* send one valid process data to make outputs in slaves happy*/
+         ec_send_processdata();
+         ec_receive_processdata(EC_TIMEOUTRET);
+         /* request OP state for all slaves */
+         ec_writestate(0);
+         chk = 200;
+         /* wait for all slaves to reach OP state */
+         do
+         {
+            ec_send_processdata();
+            ec_receive_processdata(EC_TIMEOUTRET);
+            ec_statecheck(0, EC_STATE_OPERATIONAL, 50000);
+         }
+         while (chk-- && (ec_slave[0].state != EC_STATE_OPERATIONAL));
+         if (ec_slave[0].state == EC_STATE_OPERATIONAL )
+         {
+            linux_printf("Operational state reached for all slaves.\n");
+            inOP_motorctl = TRUE;
+                /* cyclic loop */
+            /*r(i = 1; i <= 10000; i++)
+            {
+               ec_send_processdata();
+               wkc_motorctl = ec_receive_processdata(EC_TIMEOUTRET);
+
+                    if(wkc_motorctl >= expectedWKC_motorctl)
+                    {
+                        linux_printf("Processdata cycle %4d, WKC %d , O:", i, wkc_motorctl);
+
+                        for(j = 0 ; j < oloop; j++)
+                        {
+                            linux_printf(" %2.2x", *(ec_slave[0].outputs + j));
+                        }
+
+                        printf(" I:");
+                        for(j = 0 ; j < iloop; j++)
+                        {
+                            linux_printf(" %2.2x", *(ec_slave[0].inputs + j));
+                        }
+                        linux_printf(" T:%"PRId64"\r\n",ec_DCtime);
+                        needlf_motorctl = TRUE;
+                    }
+                    osal_usleep(5000);
+
+          }*/
+          
+          osal_timert t;
+          
+          /*uint64_t old_cnt;
+		  uint64_t cur_cnt;
+          uint64_t temp;*/
+          
+		  osal_timer_start(&t, 1000);
+		  ec_dcsync0(1, TRUE, 1000000, 0);
+		  
+		  ecstate = 0;
+		  
+		  for(cycle_counter = 1; (cycle_counter <= 100000) && (!g_motorctl_stop_run); ++cycle_counter)
+		  {
+			    linux_printf("!%d\n", cycle_counter);
+			    
+			    servo_switch_op();
+			    
+				while(osal_timer_is_expired(&t) == FALSE);
+				
+				/*osal_usleep (1000);*/
+				
+				osal_timer_start(&t, 1000);
+
+				/*old_cnt = maincore_arm64_arch_timer_count();*/
+				
+				ec_send_processdata();
+				wkc_motorctl = ec_receive_processdata(EC_TIMEOUTRET);
+				
+				if( wkc_motorctl <= 0 )
+				{
+					linux_printf("Error.\n");
+					
+					break;
+				}
+				
+				DEBUGASSERT(wkc_motorctl == 3);
+				
+				/*cur_cnt = maincore_arm64_arch_timer_count();
+  
+				temp = ((unsigned long long)(cur_cnt - old_cnt) ) * 41;
+  
+				append_sleep_lat(1, temp);*/
+		}
+		
+		ec_dcsync0(1, FALSE, 2000000, 0); // SYNC0 on slave 1
+		osal_timer_start(&t, 1000);
+		
+		while(osal_timer_is_expired(&t)==FALSE);
+		
+		ec_send_processdata();
+		ec_receive_processdata(EC_TIMEOUTRET);
+		
+		linux_printf("emergency stop!\r\n"); 
+          
+        inOP_motorctl = FALSE;
+        
+       }
+       else
+       {
+                linux_printf("Not all slaves reached operational state.\n");
+                ec_readstate();
+                for(i = 1; i<=ec_slavecount ; i++)
+                {
+                    if(ec_slave[i].state != EC_STATE_OPERATIONAL)
+                    {
+                        linux_printf("Slave %d State=0x%2.2x StatusCode=0x%4.4x : %s\n",
+                            i, ec_slave[i].state, ec_slave[i].ALstatuscode, ec_ALstatuscode2string(ec_slave[i].ALstatuscode));
+                    }
+                }
+       }
+            linux_printf("\nRequest init state for all slaves\n");
+            ec_slave[0].state = EC_STATE_INIT;
+            /* request INIT state for all slaves */
+            ec_writestate(0);
+        }
+     else
+     {
+            linux_printf("No slaves found!\n");
+     }
+     
+     linux_printf("End simple test, close socket\n");
+        /* stop SOEM, close socket */
+     ec_close();
+  }
+  else
+  {
+     linux_printf("No socket connection on %s\nExecute as root\n",ifname);
+  }
+  
+  /*print_sleep_lat();*/
+}
+
+OSAL_THREAD_FUNC ecatcheck_motorctl( void *ptr )
+{
+    int slave;
+    (void)ptr;                  /* Not used */
+
+    while((!g_motorctl_stop_run))
+    {
+        if( inOP_motorctl && ((wkc_motorctl < expectedWKC_motorctl) || ec_group[currentgroup_motorctl].docheckstate))
+        {
+            if (needlf_motorctl)
+            {
+               needlf_motorctl = FALSE;
+               linux_printf("\n");
+            }
+            /* one ore more slaves are not responding */
+            ec_group[currentgroup_motorctl].docheckstate = FALSE;
+            ec_readstate();
+            for (slave = 1; slave <= ec_slavecount; slave++)
+            {
+               if ((ec_slave[slave].group == currentgroup_motorctl) && (ec_slave[slave].state != EC_STATE_OPERATIONAL))
+               {
+                  ec_group[currentgroup_motorctl].docheckstate = TRUE;
+                  if (ec_slave[slave].state == (EC_STATE_SAFE_OP + EC_STATE_ERROR))
+                  {
+                     linux_printf("ERROR : slave %d is in SAFE_OP + ERROR, attempting ack.\n", slave);
+                     ec_slave[slave].state = (EC_STATE_SAFE_OP + EC_STATE_ACK);
+                     ec_writestate(slave);
+                  }
+                  else if(ec_slave[slave].state == EC_STATE_SAFE_OP)
+                  {
+                     linux_printf("WARNING : slave %d is in SAFE_OP, change to OPERATIONAL.\n", slave);
+                     ec_slave[slave].state = EC_STATE_OPERATIONAL;
+                     ec_writestate(slave);
+                  }
+                  else if(ec_slave[slave].state > EC_STATE_NONE)
+                  {
+                     if (ec_reconfig_slave(slave, EC_TIMEOUTMON))
+                     {
+                        ec_slave[slave].islost = FALSE;
+                        linux_printf("MESSAGE : slave %d reconfigured\n",slave);
+                     }
+                  }
+                  else if(!ec_slave[slave].islost)
+                  {
+                     /* re-check state */
+                     ec_statecheck(slave, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);
+                     if (ec_slave[slave].state == EC_STATE_NONE)
+                     {
+                        ec_slave[slave].islost = TRUE;
+                        linux_printf("ERROR : slave %d lost\n",slave);
+                     }
+                  }
+               }
+               if (ec_slave[slave].islost)
+               {
+                  if(ec_slave[slave].state == EC_STATE_NONE)
+                  {
+                     if (ec_recover_slave(slave, EC_TIMEOUTMON))
+                     {
+                        ec_slave[slave].islost = FALSE;
+                        linux_printf("MESSAGE : slave %d recovered\n",slave);
+                     }
+                  }
+                  else
+                  {
+                     ec_slave[slave].islost = FALSE;
+                     linux_printf("MESSAGE : slave %d found\n",slave);
+                  }
+               }
+            }
+            if(!ec_group[currentgroup_motorctl].docheckstate)
+               linux_printf("OK : all slaves resumed OPERATIONAL.\n");
+        }
+        osal_usleep(10000);
+    }
+}
+
+int main(int argc, char *argv[])
+{
+   linux_printf("SOEM (Simple Open EtherCAT Master)\nMotorCtl\n");
+   
+   osal_thread_create(&thread1_motorctl, 128000, &ecatcheck_motorctl, NULL);
+      /* start cyclic part */
+      /*simpletest(argv[1]);*/
+      
+   adsa2_run("eth0");
+
+   linux_printf("End program\n");
+   
+   return (0);
+}

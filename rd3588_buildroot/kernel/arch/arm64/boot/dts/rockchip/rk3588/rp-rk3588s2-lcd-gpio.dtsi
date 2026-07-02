@@ -1,0 +1,76 @@
+
+/ {
+    vcc3v3_lcd_n: vcc3v3-lcd0-n {
+    gpio = <&gpio4 RK_PA3 GPIO_ACTIVE_HIGH>;
+  };
+
+    vcc3v3_lcd: vcc3v3-lcd {
+    gpio = <&gpio1 RK_PB0 GPIO_ACTIVE_HIGH>;
+  };
+
+    backlight_mipi: backlight {
+    pwms = <&pwm13 0 25000 0>;
+  };
+
+    backlight_edp: backlight-edp {
+    pwms = <&pwm8 0 25000 1>;
+  };
+  
+    backlight_lvds: backlight-lvds {
+    pwms = <&pwm1 0 25000 0>;
+  };
+};
+
+
+&pwm13 {
+    status = "okay";
+    pinctrl-0 = <&pwm13m1_pins>;
+};
+
+&pwm1 {
+    pinctrl-0 = <&pwm1m1_pins>;
+    status = "okay";
+};
+
+
+&dsi0 {
+    status = "disabled";
+    dsi0_panel: panel@0 {
+    status = "disabled";
+    reset-gpios = <&gpio4 RK_PA0 GPIO_ACTIVE_LOW>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&lcd_rst_gpio>;
+  };
+};
+
+&dsi1 {
+    status = "disabled";
+    dsi1_panel: panel@0 {
+    status = "disabled";
+	enable-gpios = <&gpio4 RK_PA3 GPIO_ACTIVE_HIGH>;
+    reset-gpios = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&lcd_rst_gpio>;
+  };
+};
+
+&pinctrl {                                                                                                               
+ lcd {
+   lcd_rst_gpio: lcd-rst-gpio {
+     rockchip,pins = <4 RK_PA0 RK_FUNC_GPIO &pcfg_pull_none>;
+   };
+ };
+
+  goodix {
+    goodix_irq: goodix-irq {
+      rockchip,pins = <4 RK_PA1 RK_FUNC_GPIO &pcfg_pull_up>;
+    };
+  };
+};
+
+&goodix_ts {
+        goodix_rst_gpio = <&gpio4 RK_PA7 GPIO_ACTIVE_HIGH>;
+        goodix_irq_gpio = <&gpio4 RK_PA1 IRQ_TYPE_LEVEL_LOW>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&goodix_irq>;
+};

@@ -1,0 +1,95 @@
+
+/{
+	sdio_pwrseq: sdio-pwrseq {
+                compatible = "mmc-pwrseq-simple";
+		clocks = <&hym8563 1>;
+		clock-names = "ext_clock";
+                pinctrl-names = "default";
+                pinctrl-0 = <&wifi_enable_h>;
+
+                /*
+                 * On the module itself this is one of these (depending
+                 * on the actual card populated):
+                 * - SDIO_RESET_L_WL_REG_ON
+                 * - PDN (power down when low)
+                 */
+                post-power-on-delay-ms = <100>;
+                reset-gpios = <&gpio1 RK_PA6 GPIO_ACTIVE_LOW>;
+        };
+
+	wireless_wlan: wireless-wlan {
+                compatible = "wlan-platdata";
+                rockchip,grf = <&grf>;
+                wifi_chip_type = "ap6275s";
+                pinctrl-names = "default";
+                pinctrl-0 = <&wifi_host_wake_irq>;
+                WIFI,host_wake_irq = <&gpio1 RK_PA7 GPIO_ACTIVE_HIGH>;
+                status = "okay";
+        };
+
+	wireless_bluetooth: wireless-bluetooth {
+                compatible = "bluetooth-platdata";
+                //wifi-bt-power-toggle;
+                uart_rts_gpios = <&gpio1 RK_PB2 GPIO_ACTIVE_LOW>;
+                pinctrl-names = "default", "rts_gpio";
+                pinctrl-0 = <&uart2m1_rtsn>, <&bt_gpio>;
+                pinctrl-1 = <&uart2m1_gpios>;
+                BT,reset_gpio    = <&gpio1 RK_PB4 GPIO_ACTIVE_HIGH>;
+                BT,wake_gpio     = <&gpio1 RK_PC2 GPIO_ACTIVE_HIGH>;
+                BT,wake_host_irq = <&gpio1 RK_PC1 GPIO_ACTIVE_HIGH>;
+                status = "okay";
+        };
+};
+
+
+&sdio0 {
+        max-frequency = <200000000>;
+        no-sd;
+        no-mmc;
+        supports-sdio;
+        bus-width = <4>;
+        disable-wp;
+        cap-sd-highspeed;
+        cap-sdio-irq;
+        keep-power-in-suspend;
+        non-removable;
+        mmc-pwrseq = <&sdio_pwrseq>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&sdio0_bus4 &sdio0_cmd &sdio0_clk>;
+        /delete-property/ rockchip,use-v2-tuning;
+        sd-uhs-sdr104;
+        status = "okay";
+};
+
+&uart2 {
+        status = "okay";
+        pinctrl-names = "default";
+        pinctrl-0 = <&uart2m1_xfer &uart2m1_ctsn>;
+};
+
+&pinctrl {
+	sdio-pwrseq {
+                wifi_enable_h: wifi-enable-h {
+                        rockchip,pins = <1 RK_PA6 RK_FUNC_GPIO &pcfg_pull_none>;
+                };
+        };
+
+        wireless-wlan {
+                wifi_host_wake_irq: wifi-host-wake-irq {
+                        rockchip,pins = <1 RK_PA7 RK_FUNC_GPIO &pcfg_pull_down>;
+                };
+        };
+
+        wireless-bluetooth {
+		bt_gpio: bt-gpio {
+                        rockchip,pins =
+                                <1 RK_PB4 RK_FUNC_GPIO &pcfg_pull_none>,
+                                <1 RK_PC2 RK_FUNC_GPIO &pcfg_pull_up>,
+                                <1 RK_PC1 RK_FUNC_GPIO &pcfg_pull_down>;
+                };
+
+                uart2m1_gpios: uart2m1-gpios {
+                        rockchip,pins = <1 RK_PB2 RK_FUNC_GPIO &pcfg_pull_none>;
+                };
+        };
+};

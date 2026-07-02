@@ -1,0 +1,337 @@
+/* board base */
+//#include "rk3588s-evb4-lp4x-v10.dts"
+#include "rp-rk3588s-board.dtsi"
+
+#include "rp-tp-i2c4-gt911.dtsi"
+#include "rd-rk3588s-ahd-lcd-gpio.dtsi"
+
+/* usb */
+#include "rp-usb-typea-rk3588.dtsi"
+#include "rp-usb-host.dtsi"
+
+/* ethernet */ 
+#include "rp-eth-gmac1.dtsi"
+#include "rp-eth-pcie2gmac-rk3588s.dtsi"
+                
+/* pcie */      
+#include "rp-pcie-power-rk3588s.dtsi"
+
+/* audio */
+#include "rp-audio-rt5640.dtsi"
+
+/* wifi/bt */
+#include "rp-wifi-bt-ap6275p-rd-rk3588s-ahd.dtsi"
+
+/* camera */
+#include "rp-camera-dcphy0-mipi-xs9922b-rk3588s.dtsi"
+#include "rp-camera-dcphy1-mipi-xs9922b-rk3588s.dtsi"
+//#include "rp-camera-dphy0-imx415-rk3588s.dtsi"
+
+#include "rp-lcd-hdmi0.dtsi"
+
+/* mipi lcd */
+//#include "rp-lcd-mipi0-5-720-1280-v2.dtsi"
+//#include "rp-lcd-mipi0-5-720-1280-v2-boxTP.dtsi"
+//#include "rp-lcd-mipi0-7-720-1280.dtsi"
+#include "rp-lcd-mipi0-7-1024-600.dtsi"
+//#include "rp-lcd-mipi0-8-800-1280-v3.dtsi"
+//#include "rp-lcd-mipi0-8-1200-1920.dtsi"
+//#include "rp-lcd-mipi0-10-800-1280-v2-JC101HD131.dtsi"
+//#include "rp-lcd-mipi0-10-800-1280-v3.dtsi"
+//#include "rp-lcd-mipi0-10-1200-1920.dtsi"
+//#include "rp-lcd-mipi0-10-1920-1200-jc.dtsi"
+
+/* edp lcd */
+//#include "rp-lcd-rk3588s-edp0-13.3-15.6-1920-1080.dtsi"
+
+/* mipi_to_lvds lcd */
+//#include "rp-lcd-mipi1-gm8775-lvds-21-1920-1080.dtsi"
+//#include "rp-lcd-mipi1-gm8775-lvds-10.1-1024-600.dtsi"
+
+
+/* quadplex lcd */
+//#include "rp-lcd-quadplex-mipi0-5-720-1280-v2-boxTP-mipi1-gm8775-lvds-10.1-1024-600-edp0-hdmi1.dtsi"
+//#include "rp-lcd-quadplex-mipi0-5-720-1280-v2-boxTP-mipi1-gm8775-lvds-10.1-1024-600-hdmi0-hdmi1.dtsi"
+
+
+
+/ {
+    model = "rd-rk3588s-ahd";
+
+	vcc_1v1_nldo_s3: vcc-1v1-nldo-s3 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_1v1_nldo_s3";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <1100000>;
+		regulator-max-microvolt = <1100000>;
+		vin-supply = <&vcc5v0_sys>;
+	};
+
+	 vdd_ADP5585: vdd_ADP5585 {   //vdd_5v vdd_3v3 enable
+                compatible = "regulator-fixed";
+                regulator-name = "vdd_ADP5585";
+                regulator-always-on;
+                regulator-boot-on;
+                regulator-min-microvolt = <3300000>;
+                regulator-max-microvolt = <3300000>;
+                enable-active-high;
+                gpio = <&gpio1 RK_PA4 GPIO_ACTIVE_HIGH>;  //注意驱动解析的是gpio还是gpios
+                gpios = <&gpio1 RK_PA4 GPIO_ACTIVE_HIGH>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&vdd_ADP5585_control>;
+        };
+
+	fan_gpio_control {
+            compatible = "fan_gpio_control";
+            gpio-pin = <&gpio0 RK_PC4 GPIO_ACTIVE_HIGH>;
+            thermal-zone = "soc-thermal";
+            threshold-temp = <60000>; //60C
+            running-time = <10000>; //10s
+            status = "okay";
+        };
+
+	rp_power{
+                status = "okay";
+                compatible = "rp_power";
+                rp_not_deep_sleep = <1>;
+
+//#define GPIO_FUNCTION_OUTPUT 0
+//#define GPIO_FUNCTION_INPUT 1
+//#define GPIO_FUNCTION_IRQ 2
+//#define GPIO_FUNCTION_FLASH 3
+//#define GPIO_FUNCTION_OUTPUT_CTRL 4
+/*	
+		vdd_5v_3v3 {   
+                        gpio_num = <&gpio3 RK_PC2 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <4>;
+                };
+*/
+		//fan {   
+                //        gpio_num = <&gpio0 RK_PC4 GPIO_ACTIVE_HIGH>;
+                //        gpio_function = <4>;
+                //};
+
+		led {  
+                        gpio_num = <&gpio3 RK_PC6 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <3>;
+                };
+
+		usb-host-power {
+                        gpio_num = <&gpio1 RK_PC6 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <4>;
+                };
+	
+		usb-hub-reset {  
+                        gpio_num = <&gpio1 RK_PD5 GPIO_ACTIVE_LOW>;
+                        gpio_function = <4>;
+                };
+	
+		otg_vdd5v {
+                        gpio_num = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <4>;
+                };
+
+		sd-pwren {
+                        gpio_num = <&gpio0 RK_PD3 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <4>;
+                };
+
+		vdd_gps { //gpio_r0
+                        gpio_num = <&adp5585_gpio 0 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <4>;
+                };
+
+                vdd_4g { //gpio_r1
+                        gpio_num = <&adp5585_gpio 1 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <4>;
+                };
+	};
+
+        rp_gpio{
+                status = "okay";
+                compatible = "rp_gpio";
+		
+		gpio_r2 {
+                        gpio_num = <&adp5585_gpio 2 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+		gpio_r3 {
+                        gpio_num = <&adp5585_gpio 3 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+		gpio_r4 {
+                        gpio_num = <&adp5585_gpio 4 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+		
+		gpio_c0 {
+                        gpio_num = <&adp5585_gpio 5 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+		gpio_c1 {
+                        gpio_num = <&adp5585_gpio 6 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+		gpio_c2 {
+                        gpio_num = <&adp5585_gpio 7 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+		
+		gpio_c3 {
+                        gpio_num = <&adp5585_gpio 8 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+		gpio_c4 {
+                        gpio_num = <&adp5585_gpio 9 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+        };
+};
+
+
+&uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0m2_xfer>;
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1m1_xfer>;
+};
+
+&uart3 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3m2_xfer>;
+};
+
+&uart4 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart4m2_xfer>;
+};
+
+
+&uart5 {  //485
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart5m1_xfer>;
+};
+
+&uart6 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart6m1_xfer>;
+};
+
+&uart7 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart7m2_xfer>;
+};
+
+&fiq_debugger {
+	rockchip,baudrate = <115200>;
+};
+
+
+&can0 {
+	assigned-clocks = <&cru CLK_CAN0>;
+	assigned-clock-rates = <200000000>;
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&can0m0_pins>;
+};
+
+&can1 {
+	assigned-clocks = <&cru CLK_CAN1>;
+	assigned-clock-rates = <200000000>;
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&can1m1_pins>;
+};
+
+&can2 {
+	assigned-clocks = <&cru CLK_CAN2>;
+	assigned-clock-rates = <200000000>;
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&can2m1_pins>;
+};
+
+&sdmmc {
+	status = "okay";
+  /delete-property/ vmmc-supply;
+};
+
+&rk_headset {
+  headset_gpio = <&gpio1 RK_PC0 GPIO_ACTIVE_HIGH>;
+};
+
+
+&i2c8 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c8m2_xfer>;
+
+	hym8563: hym8563@51 {
+		compatible = "haoyu,hym8563";
+		reg = <0x51>;
+		#clock-cells = <0>;
+		clock-frequency = <32768>;
+		clock-output-names = "hym8563";
+	};
+
+	adp5585: mfd-gpio@34 {
+        	compatible = "adi,adp5585";
+        	reg = <0x34>;
+        	status = "okay";
+
+        	adp5585_gpio: gpio-normal@34 {
+            		compatible = "adp5585-gpio";
+            		gpio-controller;
+            		#gpio-cells = <2>;
+        	};
+        
+        	// adp5585pwm: pwm@34 {
+            		// compatible = "adp5585-pwm";
+            		// #pwm-cells = <3>;
+       		// };
+    };
+};
+
+&dmc {
+	status = "disabled";
+};
+
+&pinctrl {
+	vdd-ADP5585 {
+                vdd_ADP5585_control: vdd-ADP5585-control {
+                        rockchip,pins =
+                        /** power supply enable pin */
+                        <1 RK_PA4 RK_FUNC_GPIO &pcfg_pull_none>;
+                };
+        };
+
+};
+
+&display_subsystem {
+clocks = <&hdptxphy_hdmi_clk0>, <&hdptxphy_hdmi_clk1>;
+clock-names = "hdmi0_phy_pll", "hdmi1_phy_pll";
+};
+
+&hdptxphy_hdmi_clk0 {
+            status = "okay";
+};
+
+&hdptxphy_hdmi_clk1 {
+            status = "okay";
+};

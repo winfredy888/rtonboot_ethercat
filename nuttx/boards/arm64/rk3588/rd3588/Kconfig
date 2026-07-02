@@ -1,0 +1,14 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+if ARCH_BOARD_RD3588
+
+config ARCH_BOARD
+	string "ARCH_BOARD"
+	default "rd3588"
+	---help---
+		Specify ARCH_BOARD.
+		
+endif # ARCH_BOARD_RD3588

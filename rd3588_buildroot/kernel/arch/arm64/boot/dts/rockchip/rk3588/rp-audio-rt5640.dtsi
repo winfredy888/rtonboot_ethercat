@@ -1,0 +1,71 @@
+
+/ {
+        rt5640-sound {
+                compatible = "simple-audio-card";
+                simple-audio-card,format = "i2s";
+                simple-audio-card,name = "rockchip,rt5640-codec";
+                simple-audio-card,mclk-fs = <256>;
+                simple-audio-card,widgets =
+                        "Microphone", "Mic Jack",
+                        "Headphone", "Headphone Jack";
+                simple-audio-card,routing =
+                        "Mic Jack", "MICBIAS1",
+                        "IN1P", "Mic Jack",
+                        "Headphone Jack", "HPOL",
+                        "Headphone Jack", "HPOR";
+                simple-audio-card,cpu {
+                        sound-dai = <&i2s0_8ch>;
+                };
+                simple-audio-card,codec {
+                        sound-dai = <&rt5640>;
+                };
+        };
+
+       rk_headset: rk-headset {
+        status = "okay";
+        compatible = "rockchip_headset";
+        headset_gpio = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&hp_det>;
+    };
+};
+
+&i2s0_8ch {
+    status = "okay";
+};
+
+&i2c7 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c7m0_xfer>;
+
+    rt5640: rt5640@1c {
+        #sound-dai-cells = <0>;
+        compatible = "realtek,rt5640";
+        reg = <0x1c>;
+        clocks = <&mclkout_i2s0>;
+        clock-names = "mclk";
+        realtek,in1-differential;
+        pinctrl-names = "default";
+        pinctrl-0 = <&i2s0_mclk>;
+        io-channels = <&saradc 4>;
+        hp-det-adc-value = <500>;
+    
+          spk-play-volume = <7>;       ////63-0 min-max
+          hp-play-volume = <15>;       ////63-0 min-max
+          capture-volume = <127>; //0-127 min-max
+
+ //               assigned-clocks = <&cru I2S0_8CH_MCLKOUT>;
+//                assigned-clock-rates = <12288000>;
+    };
+};
+
+
+&pinctrl {
+        rt5640_pinctrl {
+                hp_det:hp_det {
+                        rockchip,pins = <1 RK_PC4 RK_FUNC_GPIO &pcfg_pull_none>;
+                };
+        };
+};
+

@@ -1,0 +1,5 @@
+config BR2_PACKAGE_APP_TESTBC
+	bool "testbc"
+	help
+	  Winfred Young testbc command
+	  

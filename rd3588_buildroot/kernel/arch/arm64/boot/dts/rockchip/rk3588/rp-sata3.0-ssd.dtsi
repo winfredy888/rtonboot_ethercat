@@ -1,0 +1,31 @@
+&pcie2x1l1 {
+    status = "disabled";
+    phys = <&combphy2_psu PHY_TYPE_PCIE>;
+    phy-names = "pcie-phy";
+};
+
+&usbhost3_0 {
+    status = "disabled";
+};
+
+&usbhost_dwc3_0 {
+    status = "disabled";
+    phys = <&combphy2_psu PHY_TYPE_USB3>;
+    phy-names = "usb3-phy";
+};
+
+&sata2 {
+    status = "okay";
+    phys = <&combphy2_psu PHY_TYPE_SATA>;
+    phy-names = "sata-phy";
+};
+
+/*
+ * Only one mode can be selected at a time.
+ *            / USB3.0   (phys = <&combphy2_psu PHY_TYPE_USB3>;)
+ * combphy2 --- SATA3.0  (phys = <&combphy2_psu PHY_TYPE_SATA>;)  current mode
+ *            \ PCIE2.0  (phys = <&combphy2_psu PHY_TYPE_PCIE>;)
+ */
+&combphy2_psu {
+    status = "okay";
+};

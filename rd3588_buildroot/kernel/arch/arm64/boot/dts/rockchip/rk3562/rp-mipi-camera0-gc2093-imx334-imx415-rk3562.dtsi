@@ -1,0 +1,215 @@
+
+/ {
+
+
+        vcc_camera: vcc-camera-regulator {
+                compatible = "regulator-fixed";
+                regulator-name = "vcc_camera";
+                enable-active-high;
+                regulator-always-on;
+                regulator-boot-on;
+		vin-supply = <&vcc1v8_dvp>;
+        };
+};
+
+&i2c4 {
+        status = "okay";
+        gc2093_0: gc2093_0@37 {
+                compatible = "galaxycore,gc2093";
+                status = "okay";
+                reg = <0x37>;
+                clocks = <&cru CLK_CAM0_OUT2IO>;
+                clock-names = "xvclk";
+                pinctrl-names = "default";
+		pinctrl-0 = <&camm0_clk0_out>;
+                pwdn-gpios = <&nca9555_gpio IO_05 GPIO_ACTIVE_HIGH>;
+                reset-gpios = <&nca9555_gpio IO_04 GPIO_ACTIVE_LOW>;
+                rockchip,camera-module-index = <0>;
+                rockchip,camera-module-facing = "back";
+                rockchip,camera-module-name = "DW-RV2093-V1.0";
+                rockchip,camera-module-lens-name = "JZ-7070AS-A1";
+                port {
+                        ucam_0_out0: endpoint {
+                                remote-endpoint = <&mipi_in_0_ucam0>;
+                                data-lanes = <1 2>;
+                        };
+                };
+        };
+
+   	imx334_0: imx334_0@1a {
+                compatible = "sony,imx334";
+                status = "okay";
+                reg = <0x1a>;
+                clocks = <&cru CLK_CAM0_OUT2IO>;
+                clock-names = "xvclk";
+                // conflict with csi-ctl-gpios//
+                pwdn-gpios = <&nca9555_gpio IO_05 GPIO_ACTIVE_HIGH>;
+                reset-gpios = <&nca9555_gpio IO_04 GPIO_ACTIVE_HIGH>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&camm0_clk0_out>;
+                rockchip,camera-module-index = <0>;
+                rockchip,camera-module-facing = "back";
+                rockchip,camera-module-name = "CMK-OT1522-FG3";
+                rockchip,camera-module-lens-name = "CS-P1150-IRC-8M-FAU";
+                
+                port {
+                        ucam_0_out1: endpoint {
+                                remote-endpoint = <&mipi_in_0_ucam1>;
+                                data-lanes = <1 2 3 4>;
+                        };
+                };
+        };
+
+    	imx415_0: imx415_0@1a {
+                compatible = "sony,imx415";
+                status = "okay";
+                reg = <0x1a>;
+                clocks = <&cru CLK_CAM0_OUT2IO>;
+                clock-names = "xvclk";
+                pwdn-gpios = <&nca9555_gpio IO_05 GPIO_ACTIVE_HIGH>;
+                reset-gpios = <&nca9555_gpio IO_04 GPIO_ACTIVE_LOW>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&camm0_clk0_out>;
+                rockchip,camera-module-index = <0>;
+                rockchip,camera-module-facing = "back";
+                rockchip,camera-module-name = "CMK-OT1607-FV1";
+                rockchip,camera-module-lens-name = "M12-40IRC-4MP-F16";
+                port {
+                        ucam_0_out2: endpoint {
+                                remote-endpoint = <&mipi_in_0_ucam2>;
+                                data-lanes = <1 2 3 4>;
+                        };
+                };
+        };
+    
+};
+
+
+&csi2_dphy0_hw {
+	status = "okay";
+};
+
+&csi2_dphy0 {
+        status = "okay";
+
+        ports {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                port@0 {
+                        reg = <0>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+                        mipi_in_0_ucam0: endpoint@0 {
+                                reg = <0>;
+                                remote-endpoint = <&ucam_0_out0>;
+                                data-lanes = <1 2>;
+                        };
+
+                        mipi_in_0_ucam1: endpoint@1 {
+                                reg = <1>;
+                                remote-endpoint = <&ucam_0_out1>;
+                                data-lanes = <1 2 3 4>;
+                        };
+
+                        mipi_in_0_ucam2: endpoint@2 {
+                                reg = <2>;
+                                remote-endpoint = <&ucam_0_out2>;
+                                data-lanes = <1 2 3 4>;
+                        };
+              };
+                port@1 {
+                        reg = <1>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+                        csidcphy0_out: endpoint@0 {
+                                reg = <0>;
+                                remote-endpoint = <&mipi0_csi2_input>;
+                        };
+                };
+        };
+};
+
+
+&mipi0_csi2 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi0_csi2_input: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&csidcphy0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi0_csi2_output: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&cif_mipi_in0>;
+			};
+		};
+	};
+};
+
+&rkcif {
+	status = "okay";
+};
+
+&rkcif_mipi_lvds {
+	status = "okay";
+
+	port {
+		cif_mipi_in0: endpoint {
+			remote-endpoint = <&mipi0_csi2_output>;
+		};
+	};
+};
+
+&rkcif_mipi_lvds_sditf {
+	status = "okay";
+
+	port {
+		mipi_lvds_sditf: endpoint {
+			remote-endpoint = <&isp_vir0>;
+		};
+	};
+};
+
+&rkcif_mmu {
+	status = "okay";
+};
+
+&rkisp {
+	status = "okay";
+};
+
+&rkisp_mmu {
+	status = "okay";
+};
+
+&rkisp_vir0 {
+	status = "okay";
+
+	port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		isp_vir0: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&mipi_lvds_sditf>;
+		};
+	};
+};
+

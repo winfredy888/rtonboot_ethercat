@@ -1,0 +1,122 @@
+
+/{
+	sdio_pwrseq: sdio-pwrseq {
+                compatible = "mmc-pwrseq-simple";
+                clocks = <&hym8563>;
+                clock-names = "ext_clock";
+		pinctrl-names = "default";
+                pinctrl-0 = <&wifi_enable_h>;
+
+                /*
+                 * On the module itself this is one of these (depending
+                 * on the actual card populated):
+                 * - SDIO_RESET_L_WL_REG_ON
+                 * - PDN (power down when low)
+                 */
+                post-power-on-delay-ms = <100>;
+                reset-gpios = <&gpio0 RK_PC7 GPIO_ACTIVE_LOW>;
+        };
+
+	wireless-wlan {
+                compatible = "wlan-platdata";
+                rockchip,grf = <&sys_grf>;
+                wifi_chip_type = "vs2275s";
+                pinctrl-names = "default";
+                pinctrl-0 = <&wifi_host_wake_irq>;
+                WIFI,host_wake_irq = <&gpio0 RK_PA0 GPIO_ACTIVE_HIGH>;
+				//WIFI,poweren_gpio = <&gpio1 RK_PC7 GPIO_ACTIVE_HIGH>;
+                status = "okay";
+        };
+
+        wireless-bluetooth {
+                compatible = "bluetooth-platdata";
+                clocks = <&hym8563>;
+                clock-names = "ext_clock";
+				//wifi-bt-power-toggle;
+                uart_rts_gpios = <&gpio3 RK_PD2 GPIO_ACTIVE_LOW>;
+                pinctrl-names = "default", "rts_gpio";
+                pinctrl-0 = <&uart9m2_rtsn>, <&bt_gpio>;
+                pinctrl-1 = <&uart9_gpios>;
+                BT,reset_gpio    = <&gpio0 RK_PD0 GPIO_ACTIVE_HIGH>;
+                BT,wake_gpio     = <&gpio0 RK_PC6 GPIO_ACTIVE_HIGH>;
+                BT,wake_host_irq = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;
+                status = "okay";
+        };
+
+	bt-sound {
+                compatible = "simple-audio-card";
+                simple-audio-card,format = "dsp_a";
+                simple-audio-card,bitclock-inversion = <1>;
+                simple-audio-card,mclk-fs = <256>;
+                simple-audio-card,name = "rockchip,bt";
+                simple-audio-card,cpu {
+                        sound-dai = <&i2s2_2ch>;
+                };
+
+                simple-audio-card,codec {
+                        sound-dai = <&bt_sco 1>;
+                };
+        };
+
+        bt_sco: bt-sco {
+                compatible = "delta,dfbmcs320";
+                #sound-dai-cells = <1>;
+                status = "okay";
+        };
+};
+
+&sdio {
+        max-frequency = <150000000>;
+        no-sd;
+        no-mmc;
+        bus-width = <4>;
+        disable-wp;
+        cap-sd-highspeed;
+        cap-sdio-irq;
+        keep-power-in-suspend;
+        mmc-pwrseq = <&sdio_pwrseq>;
+        non-removable;
+        num-slots = <1>;
+        supports-sdio;
+        sd-uhs-sdr104;
+        status = "okay";
+        //post_power_on_delay_ms = <100>;
+};
+
+&uart9 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart9m2_xfer &uart9m2_ctsn>;
+};
+
+&i2s2_2ch {
+        status = "okay";
+        pinctrl-names = "default";
+        pinctrl-0 = <&i2s2m1_lrck
+                     &i2s2m1_sclk
+                     &i2s2m1_sdi
+                     &i2s2m1_sdo>;
+};
+
+&pinctrl {
+	wireless-wlan {
+        	wifi_host_wake_irq: wifi-host-wake-irq {
+            		rockchip,pins = <0 RK_PA0 RK_FUNC_GPIO &pcfg_pull_down>;
+        	};
+		wifi_enable_h: wifi-enable-h {
+                        rockchip,pins = <0 RK_PC7 RK_FUNC_GPIO &pcfg_pull_none>;
+                };
+    	};
+
+    	wireless-bluetooth {
+		bt_gpio: bt-gpio {
+                        rockchip,pins =
+                                <0 RK_PD0 RK_FUNC_GPIO &pcfg_pull_none>,
+                                <0 RK_PC6 RK_FUNC_GPIO &pcfg_pull_up>,
+                                <0 RK_PC5 RK_FUNC_GPIO &pcfg_pull_down>;
+                };
+        	uart9_gpios: uart9-gpios {
+            		rockchip,pins = <3 RK_PD2 RK_FUNC_GPIO &pcfg_pull_none>;
+        	};
+    	};
+};

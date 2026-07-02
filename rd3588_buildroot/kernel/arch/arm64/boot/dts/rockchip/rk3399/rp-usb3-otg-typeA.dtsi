@@ -1,0 +1,72 @@
+//USB3.0-otg-typec
+
+/ {
+    vcc5v0_usb: vcc5v0-usb {
+        compatible = "regulator-fixed";
+        regulator-name = "vcc5v0_usb";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <5000000>;
+        regulator-max-microvolt = <5000000>;
+    };
+
+    vcc_otg_vbus: otg-vbus-regulator {
+        compatible = "regulator-fixed";
+        regulator-name = "vcc_otg_vbus";
+        //regulator-min-microvolt = <5000000>;
+        //regulator-max-microvolt = <5000000>;
+        enable-active-low;
+        //regulator-always-on;
+        gpio = <&gpio4 RK_PD2 GPIO_ACTIVE_LOW>;
+        vin-supply = <&vcc5v0_usb>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&otg_vbus_drv>;
+    };
+    
+};
+
+&pinctrl {
+    usb{
+        otg_vbus_drv: otg-vbus-drv {
+            rockchip,pins = <4 RK_PD2 RK_FUNC_GPIO &pcfg_pull_none>;
+        };
+    };
+};
+
+&u2phy0 {
+        status = "okay";
+
+        u2phy0_otg: otg-port {
+                vbus-supply = <&vcc_otg_vbus>;
+        status = "okay";
+        };
+
+};
+
+&tcphy0{
+        status = "okay";
+    tcphy0_usb3: usb3-port {
+                #phy-cells = <0>;
+        };
+};
+
+&cdn_dp {
+    compatible = "rockchip,rk3399-cdn-dp";
+    phys = <&tcphy0_dp>, <&tcphy1_dp>;
+    status = "disabled";
+};
+
+
+&usbdrd3_0{
+        status = "okay";
+};
+
+&usbdrd_dwc3_0 {
+        dr_mode = "otg"; //device or host
+        extcon = <&u2phy0>;
+        phys = <&u2phy0_otg>, <&tcphy0_usb3>;
+        phy-names = "usb2-phy", "usb3-phy";
+    status = "okay";
+};
+
+

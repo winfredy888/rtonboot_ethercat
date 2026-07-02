@@ -1,0 +1,8 @@
+RK_YOCTO_CFG="rockchip-rk3528-evb"
+RK_WIFIBT_CHIP="AP6275S"
+RK_KERNEL_DTS_NAME="rk3528/rp-rk3528"
+RK_PARAMETER="parameter-debian-ubuntu.txt"
+RK_USE_FIT_IMG=y
+RK_ROOTFS_SYSTEM_DEBIAN=y
+RK_WIFIBT_TTY="ttyS2"
+RK_KERNEL_CFG_FRAGMENTS="rockchip_wifi_builtin.config"

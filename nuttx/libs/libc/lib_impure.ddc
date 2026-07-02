@@ -1,0 +1,22 @@
+bin/lib_impure.o: misc/lib_impure.c \
+ /opt/gcc_arm/aarch64-none-elf/include/reent.h \
+ /opt/gcc_arm/aarch64-none-elf/include/sys/reent.h \
+ /opt/gcc_arm/aarch64-none-elf/include/_ansi.h \
+ /opt/gcc_arm/aarch64-none-elf/include/newlib.h \
+ /opt/gcc_arm/aarch64-none-elf/include/_newlib_version.h \
+ /opt/gcc_arm/aarch64-none-elf/include/sys/config.h \
+ /opt/gcc_arm/aarch64-none-elf/include/machine/ieeefp.h \
+ /opt/gcc_arm/aarch64-none-elf/include/sys/features.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/stddef.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/sys/types.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/nuttx/config.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/nuttx/compiler.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/stdint.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/arch/types.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/arch/inttypes.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/limits.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/arch/limits.h \
+ /opt/gcc_arm/aarch64-none-elf/include/sys/_types.h \
+ /opt/gcc_arm/aarch64-none-elf/include/machine/_types.h \
+ /opt/gcc_arm/aarch64-none-elf/include/machine/_default_types.h \
+ /opt/gcc_arm/aarch64-none-elf/include/sys/lock.h

@@ -1,0 +1,33 @@
+// hardware not connected
+&dp1_sound{
+    status = "disabled";
+    compatible = "rockchip,hdmi";
+    rockchip,card-name= "rockchip-dp1";
+    rockchip,mclk-fs = <512>;
+    rockchip,cpu = <&spdif_tx5>;
+    rockchip,codec = <&dp1 1>;
+    rockchip,jack-det;
+};
+
+/*
+IT6516BFN max output 2048x1536@p50
+dp1->vp2(max 4096x2304@60Hz)->IT6516BFN->VGA
+*/
+&dp1_in_vp2 {
+    status = "okay";
+};
+
+&dp1 {
+    hpd-gpios = <&gpio3 RK_PC5 GPIO_ACTIVE_HIGH>;
+    status = "okay";
+};
+
+&route_dp1{
+    status = "okay";
+    connect = <&vp2_out_dp1>;
+};
+
+&usbdp_phy1 {
+    status = "okay";
+    rockchip,dp-lane-mux = <2 3>;
+};

@@ -1,0 +1,54 @@
+
+/ {
+    /* If hdmirx node is disabled, delete the reserved-memory node here. */
+    reserved-memory {
+        #address-cells = <2>;
+        #size-cells = <2>;
+        ranges;
+
+        /* Reserve 256MB memory for hdmirx-controller@fdee0000 */
+        cma {
+            compatible = "shared-dma-pool";
+            reusable;
+            reg = <0x0 (256 * 0x100000) 0x0 (128 * 0x100000)>;
+            linux,cma-default;
+        };
+    };
+
+  hdmiin-sound {
+    compatible = "simple-audio-card";
+    simple-audio-card,format = "i2s";
+    simple-audio-card,name = "rockchip,hdmiin";
+    simple-audio-card,bitclock-master = <&dailink0_master>;
+    simple-audio-card,frame-master = <&dailink0_master>;
+    status = "okay";
+    simple-audio-card,cpu {
+      sound-dai = <&i2s7_8ch>;
+    };
+    dailink0_master: simple-audio-card,codec {
+       sound-dai = <&hdmiin_dc>;
+   };
+  };
+  
+  hdmiin_dc: hdmiin-dc {
+     compatible = "rockchip,dummy-codec";
+     #sound-dai-cells = <0>;
+ };
+
+};
+
+&i2s7_8ch {
+  status = "okay";
+};
+
+
+&hdmirx_ctrler {
+    status = "okay";
+
+    /* Effective level used to trigger HPD: 0-low, 1-high */
+    hpd-trigger-level = <1>;
+    hdmirx-det-gpios = <&gpio1 RK_PD5 GPIO_ACTIVE_LOW>;
+    pinctrl-0 = <&hdmim1_rx_cec &hdmim2_rx_hpdin &hdmim1_rx_scl &hdmim1_rx_sda>;
+    pinctrl-names = "default";
+};
+

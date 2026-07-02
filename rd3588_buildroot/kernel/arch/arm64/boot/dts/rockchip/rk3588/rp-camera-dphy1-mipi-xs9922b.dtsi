@@ -1,0 +1,139 @@
+/*
+ * full mode: camera -> csi2_dphy3 -> mipi4_csi2 -> rkcif_mipi_lvds4 -> rkisp
+ */
+
+&i2c2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2m4_xfer>;
+
+    xs9922_3: xs9922-3@30 {
+        compatible = "xs9922";
+        status = "okay";
+        reg = <0x30>;
+        clocks = <&cru CLK_MIPI_CAMARAOUT_M1>;
+        clock-names = "xvclk";
+        power-domains = <&power RK3588_PD_VI>;
+        // pinctrl-names = "default";
+        // pinctrl-0 = <&xs9922_pwr_1>;
+        // power-gpios = <&gpio2 RK_PB7 GPIO_ACTIVE_HIGH>;
+        //avdd-supply = <&vcc_avdd>;
+        //dovdd-supply = <&vcc_dovdd>;
+        //dvdd-supply = <&vcc_dvdd>;
+        rockchip,camera-module-index = <0>;
+        rockchip,camera-module-facing = "back";
+        rockchip,camera-module-name = "default";
+        rockchip,camera-module-lens-name = "default";
+        rockchip,default_rect= <1280 720>; 
+		port {
+			xs9922_out3: endpoint {
+				remote-endpoint = <&mipi_in_ucam3>;
+				data-lanes = <1 2 3 4>;
+			};
+		};
+	};
+};
+
+&csi2_dphy1_hw {
+	status = "okay";
+};
+
+/*
+ * full mode 4lane must use csi2_dphy3
+ */
+&csi2_dphy3 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			mipi_in_ucam3: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&xs9922_out3>;
+				data-lanes = <1 2 3 4>;
+			};
+		};
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			csidphy3_out: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&mipi4_csi2_input>;
+			};
+		};
+	};
+};
+
+&mipi4_csi2 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			mipi4_csi2_input: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&csidphy3_out>;
+			};
+		};
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			mipi4_csi2_output: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&cif_mipi_in4>;
+			};
+		};
+	};
+};
+
+
+&rkcif_mipi_lvds4 {
+	status = "okay";
+    rockchip,cif-monitor = <1 2 5 1000 5>;
+	port {
+		cif_mipi_in4: endpoint {
+			remote-endpoint = <&mipi4_csi2_output>;
+		};
+	};
+};
+
+//link to rkisp1_vir1
+#if 0
+&rkcif_mipi_lvds4_sditf {
+	status = "okay";
+	port {
+		mipi_lvds4_sditf: endpoint {
+			remote-endpoint = <&isp1_vir1>;
+		};
+	};
+};
+
+&rkisp1 {
+	status = "okay";
+};
+
+&isp1_mmu {
+	status = "okay";
+};
+
+&rkisp1_vir1 {
+	status = "okay";
+	port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		isp1_vir1: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&mipi_lvds4_sditf>;
+		};
+	};
+};
+#endif

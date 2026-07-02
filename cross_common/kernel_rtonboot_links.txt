@@ -1,0 +1,8 @@
+rd3588_buildroot/kernel/drivers/rtonboot/jihuoma.h -> jihuoma.h
+rd3588_buildroot/kernel/drivers/rtonboot/msg_common_struct.h -> msg_common_struct.h
+rd3588_buildroot/kernel/drivers/rtonboot/msgid.h -> msgid.h
+rd3588_buildroot/kernel/drivers/rtonboot/rt_common_internal.h -> rt_common_internal.h
+rd3588_buildroot/kernel/drivers/rtonboot/rtonboot_ioctl.h -> rtonboot_ioctl.h
+rd3588_buildroot/kernel/drivers/rtonboot/rtonboot_ioctl_struct.h -> rtonboot_ioctl_struct.h
+rd3588_buildroot/kernel/kernel/rtonboot/offset_common.h -> offset_common.h
+rd3588_buildroot/kernel/drivers/mmc/core/jihuoma.h -> jihuoma.h

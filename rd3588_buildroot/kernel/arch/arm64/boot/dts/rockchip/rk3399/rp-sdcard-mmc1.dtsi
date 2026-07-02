@@ -1,0 +1,65 @@
+/{
+    vcc3v0_sd: vcc3v0-sd {
+        status = "okay";
+        compatible = "regulator-fixed";
+        enable-active-high;
+        gpio = <&gpio0 RK_PA1 GPIO_ACTIVE_HIGH>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&sdmmc0_pwr_h>;
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-max-microvolt = <3000000>;
+        regulator-min-microvolt = <3000000>;
+        regulator-name = "vcc3v0_sd";
+        vin-supply = <&vcc3v3_sys>;
+    };
+};
+
+&sdmmc {
+    broken-cd;
+    bus-width = <4>;
+    cap-mmc-highspeed;
+    cap-sd-highspeed;
+    sd-uhs-sdr104;
+    clock-frequency = <150000000>;
+    disable-wp;
+    max-frequency = <150000000>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&sdmmc_clk_rp &sdmmc_cmd_rp &sdmmc_cd_rp &sdmmc_bus4_rp>;
+    vmmc-supply = <&vcc3v0_sd>;
+    vqmmc-supply = <&vcc_sdio>;
+    status = "okay";
+};
+
+&pinctrl {
+
+    sd {
+        sdmmc0_pwr_h: sdmmc0-pwr-h {
+            rockchip,pins =
+                <0 RK_PA1 RK_FUNC_GPIO &pcfg_pull_none>;
+        };
+        sdmmc_bus4_rp: sdmmc-bus4-rp {
+            rockchip,pins =
+                <4 RK_PB0 1 &pcfg_pull_up_8ma>,
+                <4 RK_PB1 1 &pcfg_pull_up_8ma>,
+                <4 RK_PB2 1 &pcfg_pull_up_8ma>,
+                <4 RK_PB3 1 &pcfg_pull_up_8ma>;
+        };
+
+        sdmmc_clk_rp: sdmmc-clk-rp {
+            rockchip,pins =
+                <4 RK_PB4 1 &pcfg_pull_none_12ma>;
+        };
+
+        sdmmc_cmd_rp: sdmmc-cmd-rp {
+            rockchip,pins =
+                <4 RK_PB5 1 &pcfg_pull_up_8ma>;
+        };
+
+        sdmmc_cd_rp: sdmmc-cd-rp {
+            rockchip,pins =
+                <0 RK_PA7 1 &pcfg_pull_up_8ma>;
+        };
+    };
+    
+};

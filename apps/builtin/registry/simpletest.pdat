@@ -1,0 +1,1 @@
+int simpletest_main(int argc, char *argv[]);

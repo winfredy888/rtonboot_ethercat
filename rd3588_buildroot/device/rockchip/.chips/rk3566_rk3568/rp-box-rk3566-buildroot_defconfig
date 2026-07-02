@@ -1,0 +1,6 @@
+RK_YOCTO_CFG="rockchip-rk3568-evb"
+RK_KERNEL_DTS_NAME="rk356x/rp-box-rk3566"
+RK_USE_FIT_IMG=y
+RK_WIFIBT_TTY="ttyS1"
+RK_PARAMETER="parameter-buildroot-fit.txt"
+RK_CHIP_FAMILY="rk3566"

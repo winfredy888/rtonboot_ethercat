@@ -1,0 +1,29 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config ETHERCAT_EC_CYCLIC
+	tristate "IGH EC_CYCLIC Program"
+	default n
+	---help---
+		IGH EC_CYCLIC Program
+
+if ETHERCAT_EC_CYCLIC
+
+config ETHERCAT_EC_CYCLIC_PROGNAME
+	string "Program name"
+	default "ec_cyclic"
+	---help---
+		This is the name of the program that will be used when the NSH ELF
+		program is installed.
+
+config ETHERCAT_EC_CYCLIC_PRIORITY
+	int "IGH EC_CYCLIC Program task priority"
+	default 128
+
+config ETHERCAT_EC_CYCLIC_STACKSIZE
+	int "IGH EC_CYCLIC Program stack size"
+	default DEFAULT_TASK_STACKSIZE
+
+endif

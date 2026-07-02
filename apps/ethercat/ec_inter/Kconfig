@@ -1,0 +1,29 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config ETHERCAT_EC_INTER
+	tristate "IGH EC_INTER Program"
+	default n
+	---help---
+		IGH EC_INTER Program
+
+if ETHERCAT_EC_INTER
+
+config ETHERCAT_EC_INTER_PROGNAME
+	string "Program name"
+	default "ec_inter"
+	---help---
+		This is the name of the program that will be used when the NSH ELF
+		program is installed.
+
+config ETHERCAT_EC_INTER_PRIORITY
+	int "IGH EC_INTER Program task priority"
+	default 128
+
+config ETHERCAT_EC_INTER_STACKSIZE
+	int "IGH EC_INTER Program stack size"
+	default DEFAULT_TASK_STACKSIZE
+
+endif

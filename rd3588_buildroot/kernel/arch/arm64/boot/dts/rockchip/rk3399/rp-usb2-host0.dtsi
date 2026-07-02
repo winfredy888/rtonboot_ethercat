@@ -1,0 +1,21 @@
+//USB2.0-host0
+
+&u2phy0 {
+    status = "okay";
+
+    u2phy0_host: host-port {
+        status = "okay";
+    };
+};
+
+&usb_host0_ehci {
+    status = "okay";
+    phys = <&u2phy0_host>;
+    phy-names = "usb";
+};
+
+&usb_host0_ohci {
+    status = "okay";
+    phys = <&u2phy0_host>;
+    phy-names = "usb";
+};

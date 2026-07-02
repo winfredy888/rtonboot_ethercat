@@ -1,0 +1,37 @@
+//USB3.1 HOST
+&u2phy1 {
+    status = "okay";
+
+    u2phy1_otg: otg-port {
+        status = "okay";
+    };
+};
+
+&usbdrd3_1 {
+    status = "okay";
+};
+
+&tcphy1 {
+    status = "okay";
+
+    tcphy1_dp: dp-port {
+        #phy-cells = <0>;
+    };
+
+    tcphy1_usb3: usb3-port {
+        #phy-cells = <0>;
+    };
+};
+
+&cdn_dp {
+    compatible = "rockchip,rk3399-cdn-dp";
+    phys = <&tcphy0_dp>, <&tcphy1_dp>;
+    status = "disabled";
+};
+
+&usbdrd_dwc3_1 {
+    status = "okay";
+    dr_mode = "host";
+    phy-names = "usb2-phy", "usb3-phy";
+    phys = <&u2phy1_otg>, <&tcphy1_usb3>;
+};

@@ -1,0 +1,26 @@
+#ifndef __ECTIMER_H__
+#define __ECTIMER_H__
+
+#include "list.h"
+
+#include <nuttx/semaphore.h>
+
+struct ec_usleep_item {
+	struct list_head ec_usleep_list;
+	uint64_t expire_us;
+	sem_t ec_usleep_sem;
+};	
+
+extern uint64_t volatile jiffies;
+
+extern uint64_t my_arm64_arch_timer_count(void);
+
+extern void ec_timer_usleep(uint64_t ns);
+
+extern uint64_t ec_perf_get_delay(uint64_t old_cnt, uint64_t cur_cnt);
+
+extern uint64_t ec_perf_get_calc_diff(uint64_t old_cnt, uint64_t cur_cnt, uint64_t ns);
+
+extern uint64_t ec_perf_cur_ns(void);
+
+#endif

@@ -1,0 +1,31 @@
+&u2phy_host {
+//        phy-supply = <&vcc5v0_host>;
+        status = "okay";
+};
+
+&u2phy_otg {
+//        vbus-supply = <&vcc5v0_otg>;
+        status = "okay";
+};
+
+&usb2phy {
+        status = "okay";
+};
+
+&usb_host0_ehci {
+        status = "okay";
+};
+
+&usb_host0_ohci {
+        status = "okay";
+};
+
+&usbdrd30 {
+        status = "okay";
+};
+
+&usbdrd_dwc3 {
+        dr_mode = "otg";
+        extcon = <&usb2phy>;
+        status = "okay";
+};

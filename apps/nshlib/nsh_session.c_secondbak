@@ -1,0 +1,337 @@
+/****************************************************************************
+ * apps/nshlib/nsh_session.c
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.  The
+ * ASF licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ ****************************************************************************/
+
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
+
+#include <nuttx/config.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include <termios.h>
+
+#ifdef CONFIG_NSH_CLE
+#  include "system/cle.h"
+#else
+#  include "system/readline.h"
+#endif
+
+#include "nsh.h"
+#include "nsh_console.h"
+
+extern int rtos_printf(const char *fmt, ...);
+
+extern int linux_printf(const char *fmt, ...);
+
+uint64_t mycount = 0;
+
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: nsh_session
+ *
+ * Description:
+ *   This is the common session login on any NSH session.  This function
+ *   returns when an error reading from the input stream occurs, presumably
+ *   signaling the end of the session.
+ *
+ *   This function:
+ *   - Performs the login sequence if so configured
+ *   - Executes the NSH login script
+ *   - Presents a greeting
+ *   - Then provides a prompt then gets and processes the command line.
+ *   - This continues until an error occurs, then the session returns.
+ *
+ * Input Parameters:
+ *   pstate - Abstracts the underlying session.
+ *
+ * Returned Values:
+ *   EXIT_SUCCESS or EXIT_FAILURE is returned.
+ *
+ ****************************************************************************/
+
+sem_t g_cmd_ready_sem;
+extern int linux_printf(const char *fmt, ...); 
+
+extern char * g_exec_cmd_str;
+
+#define MAX_CMD_ARGV  20
+
+#define MAX_RCMD_LEN 512
+
+int parse_argv(char * str, int* argc, char** argv, int number)
+{
+    char * p;
+    int num = 0;
+    int word_start = 1;
+ 
+    if(argc == NULL || argv == NULL)
+        return -1;
+ 
+    p = str;
+    
+    while(*p){
+        if((*p == '\r') || (*p == '\n')){
+            *p = '\0';
+            break;
+        }
+        if((*p == ' ') || (*p == '\t')){
+            word_start = 1;
+            *p = '\0';
+            p++;
+            continue;
+        }
+        if(num >= number)
+            break;
+        
+        if(word_start){
+            argv[num++] = p;
+            word_start = 0;
+        }
+        p++;
+    }
+    
+    *argc = num;
+ 
+    return 0;
+}
+
+extern void linux_serial_puts(const char *s);
+
+extern int vscnprintf(char *buf, size_t size, const char *fmt, va_list args);
+
+int nsh_output(FAR struct nsh_vtbl_s *vtbl, const char *fmt, ...)
+{
+	va_list args;
+	uint i;
+	char printbuffer[512];
+
+	va_start(args, fmt);
+
+	/* For this to work, printbuffer must be larger than
+	 * anything we ever want to print.
+	 */
+	i = vscnprintf(printbuffer, sizeof(printbuffer), fmt, args);
+	va_end(args);
+
+	/* Print the string */
+	linux_serial_puts(printbuffer);
+	
+	return i;
+}	
+
+int nsh_error(FAR struct nsh_vtbl_s *vtbl, const char *fmt, ...)
+{
+	va_list args;
+	uint i;
+	char printbuffer[512];
+
+	va_start(args, fmt);
+
+	/* For this to work, printbuffer must be larger than
+	 * anything we ever want to print.
+	 */
+	i = vscnprintf(printbuffer, sizeof(printbuffer), fmt, args);
+	va_end(args);
+
+	/* Print the string */
+	linux_serial_puts(printbuffer);
+	
+	return i;
+}	
+
+
+int nsh_session(FAR struct console_stdio_s *pstate,
+                int login, int argc, FAR char *argv[])
+{
+  FAR struct nsh_vtbl_s *vtbl;
+  int ret = EXIT_FAILURE;
+  
+  char rtonboot_cmd_str[MAX_RCMD_LEN];
+  int rargc = 0;
+  char * rargv[MAX_CMD_ARGV];
+  int n;
+
+
+  DEBUGASSERT(pstate);
+  vtbl = &pstate->cn_vtbl;
+
+  /* Process the command line option */
+  
+  while (sem_wait(&g_cmd_ready_sem) < 0);
+  
+  linux_printf("Winfred Young begin to process nsh command\n"); 
+  
+  strncpy(&rtonboot_cmd_str[0], g_exec_cmd_str, MAX_RCMD_LEN - 1);
+  
+  rtonboot_cmd_str[MAX_RCMD_LEN - 1] = 0;
+  
+  parse_argv(&rtonboot_cmd_str[0], &rargc, rargv, MAX_CMD_ARGV);
+  
+  for(n = 0; n < rargc; n++)
+  {
+      linux_printf("Winfred Young rargv[%d] = '%s'\n", n, rargv[n]);
+  }
+  
+  return nsh_parse(vtbl, rargv[0]);
+
+  if (rargc > 1)
+    {
+      if (strcmp(rargv[1], "-h") == 0)
+        {
+          nsh_output(vtbl, "Usage: %s [<script-path>|-c <command>]\n",
+                     rargv[0]);
+          return EXIT_SUCCESS;
+        }
+      else if (strcmp(rargv[1], "-c") == 0)
+        {
+          /* Process the inline command */
+
+          if (rargc > 2)
+            {
+              return nsh_parse(vtbl, rargv[2]);
+            }
+          else
+            {
+              nsh_error(vtbl, g_fmtargrequired, rargv[0]);
+              return EXIT_FAILURE;
+            }
+        }
+      else if (rargv[1][0] == '-')
+        {
+          /* Unknown option */
+
+          nsh_error(vtbl, g_fmtsyntax, rargv[0]);
+          return EXIT_FAILURE;
+        }
+      else
+        {
+#ifndef CONFIG_NSH_DISABLESCRIPT
+          /* Execute the shell script */
+
+          return nsh_script(vtbl, rargv[0], rargv[1], true);
+#else
+          return EXIT_FAILURE;
+#endif
+        }
+    }
+
+#ifdef CONFIG_NSH_DISABLE_ECHOBACK
+  /* Disable echoback */
+
+  if (isatty(INFD(pstate)))
+    {
+      struct termios cfg;
+
+      if (tcgetattr(INFD(pstate), &cfg) == 0)
+        {
+          cfg.c_lflag &= ~ECHO;
+          tcsetattr(INFD(pstate), TCSANOW, &cfg);
+        }
+    }
+#endif
+
+  /* Then enter the command line parsing loop */
+
+  for (; ; )
+    {
+
+#if 0
+		
+      /* For the case of debugging the USB console...
+       * dump collected USB trace data
+       */
+
+#ifdef CONFIG_NSH_USBDEV_TRACE
+      nsh_usbtrace();
+#endif
+
+      /* Get the next line of input. readline() returns EOF
+       * on end-of-file or any read failure.
+       */
+
+#ifdef CONFIG_NSH_CLE
+      /* cle() normally returns the number of characters read, but will
+       * return a negated errno value on end of file or if an error
+       * occurs. Either  will cause the session to terminate.
+       */
+
+      ret = cle_fd(pstate->cn_line, nsh_prompt(), CONFIG_NSH_LINELEN,
+                   INFD(pstate), OUTFD(pstate));
+      if (ret < 0)
+        {
+          dprintf(ERRFD(pstate), g_fmtcmdfailed, "nsh_session",
+                  "cle", NSH_ERRNO_OF(-ret));
+          continue;
+        }
+#else
+      /* Display the prompt string */
+
+      write(OUTFD(pstate), nsh_prompt(), strlen(nsh_prompt()));
+
+      /* readline() normally returns the number of characters read, but
+       * will return EOF on end of file or if an error occurs.  EOF
+       * will cause the session to terminate.
+       */
+
+      ret = readline_fd(pstate->cn_line, CONFIG_NSH_LINELEN,
+                        INFD(pstate), OUTFD(pstate));
+      if (ret == EOF)
+        {
+          /* NOTE: readline() does not set the errno variable, but
+           * perhaps we will be lucky and it will still be valid.
+           */
+
+          dprintf(ERRFD(pstate), g_fmtcmdfailed, "nsh_session",
+                  "readline", NSH_ERRNO);
+          ret = EXIT_SUCCESS;
+          break;
+        }
+#endif
+
+      /* Parse process the command */
+
+      nsh_parse(vtbl, pstate->cn_line);
+      nsh_update_prompt();
+      
+#else
+
+		rtos_printf("nsh session loop count is %llx\n", mycount);
+		
+		/*linux_printf("aaaaaaaaaa%llx%llx%llx%llx%llx%llx%llx%llx%llx%llxbbbbbbbbbb\n",
+			mycount, mycount, mycount, mycount, mycount, mycount, mycount, mycount, mycount, mycount);*/
+		
+		usleep(1000L);
+		
+		++mycount;
+      
+#endif
+      
+    }
+    
+    
+
+  return ret;
+}

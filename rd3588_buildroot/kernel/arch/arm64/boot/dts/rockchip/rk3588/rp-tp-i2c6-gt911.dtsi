@@ -1,0 +1,12 @@
+
+&i2c6 {
+    status = "okay";
+    pinctrl-names = "default";
+  pinctrl-0 = <&i2c6m0_xfer>;
+
+  goodix_ts:goodix_ts@5d {
+        status = "okay";
+        compatible = "goodix,gt9xx";
+        reg = <0x5d>;
+  };
+};

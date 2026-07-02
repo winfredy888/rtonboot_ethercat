@@ -1,0 +1,1634 @@
+#include <linux/version.h>
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/kfifo.h>
+#include <linux/list.h>
+#include <linux/mutex.h>
+#include <linux/prandom.h>
+#include <linux/ip.h>
+#include <net/cfg80211.h>
+#include <linux/highmem.h>
+#include "rtonboot_vnetcard.h"
+
+#include "rtpub.h"
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Winfred Young");
+MODULE_DESCRIPTION("Virtual network driver for RTOnBoot");
+MODULE_VERSION("0.01");
+
+static struct net_device * __attribute__((unused)) virt_net_dev; // pointer to network device struct for virtual network device
+static struct virt_adapter_context *context; // pointer to context for virtual adapter
+
+struct net_device * g_rteth_netdev = NULL;
+
+/*
+ * Function: get_wiphy_priv
+ * ________________________
+ * Description: gets private data from wiphy structure
+ * Parameter(s): wiphy - a pointer to the wiphy structure
+ * Returns: a pointer to a virt_wiphy_priv structure
+ */
+static struct virt_wiphy_priv* get_wiphy_priv(struct wiphy* wiphy)
+{
+    return (struct virt_wiphy_priv*) wiphy_priv(wiphy);
+}
+
+/*
+ * Function: init_virt_hw_resource
+ * ________________________
+ * Description: initializes the virtual transmit and receive FIFO buffers
+ * Parameter(s): dev - a pointer to the net_device structure
+ * Returns: 0 on success or an error code if memory allocation fails
+ */
+static int init_virt_hw_resource(struct net_device *dev)
+{
+    struct virt_net_dev_priv *priv = netdev_priv(dev); // pointer to network devices private data
+    int ret; // variable for return value
+    
+    /* Initialize the virtual transmit FIFO buffer */
+    spin_lock_init(&priv->tx_fifo.lock);
+    ret = kfifo_alloc(&priv->tx_fifo.fifo, VIRT_FIFO_SIZE, GFP_KERNEL);
+    if (ret) {
+        printk(KERN_ERR "%s: Failed to allocate virtual transmit FIFO buffer\n", dev->name);
+        return ret;
+    }
+
+    /* Initialize the virtual receive FIFO buffer */
+    spin_lock_init(&priv->rx_fifo.lock);
+    ret = kfifo_alloc(&priv->rx_fifo.fifo, VIRT_FIFO_SIZE, GFP_KERNEL);
+    if (ret) {
+        printk(KERN_ERR "%s: Failed to allocate virtual receive FIFO buffer\n", dev->name);
+        kfifo_free(&priv->tx_fifo.fifo);
+        return ret;
+    }
+
+    return 0;
+}
+
+/*
+ * Function: release_virt_hw_resource
+ * ________________________
+ * Description: frees the allocated memory for FIFO buffers and cancels and flushes
+the delayed work function
+ * Parameter(s): dev - a pointer to the net_device structure
+ * Returns: void
+ */
+static void release_virt_hw_resource(struct net_device *dev)
+{
+    struct virt_net_dev_priv *priv = netdev_priv(dev);
+
+    /* Cancel the delayed work */
+    cancel_delayed_work(&priv->work);
+
+    /* Ensure the work function has completed */
+    flush_delayed_work(&priv->work);
+
+    /* Release the virtual FIFO buffer */
+    kfifo_free(&priv->tx_fifo.fifo);
+    kfifo_free(&priv->rx_fifo.fifo);
+}
+
+/*
+ * Function: is_tx_fifo_full
+ * ________________________
+ * Description: checks if the virtual transmit FIFO buffer is full
+ * Parameter(s): tx_fifo - pointer to the virt_fifo structure for the transmit FIFO buffer
+ * Returns: 1 if the buffer is full, 0 otherwise
+ */
+static int __attribute__((unused)) is_tx_fifo_full(struct virt_fifo *tx_fifo)
+{
+    return (kfifo_len(&tx_fifo->fifo) / sizeof(struct sk_buff *)) >= MAX_NUM_PACKETS;
+}
+
+/*
+ * Function: is_rx_fifo_empty
+ * ________________________
+ * Description: checks if the virtual receive FIFO buffer is empty
+ * Parameter(s): tx_fifo - pointer to the virt_fifo structure for the receive FIFO buffer
+ * Returns: 1 if the buffer is empty, 0 otherwise
+ */
+static int is_rx_fifo_empty(struct virt_fifo *rx_fifo)
+{
+    return kfifo_is_empty(&rx_fifo->fifo);
+}
+
+/*
+ * Function: virt_net_driver_open
+ * ________________________
+ * Description: initializes any resources required for the virtual network driver and schedules
+delayed work for the driver; also starts the network device's transmit queue
+ * Parameter(s): dev - pointer to the net_device structure
+ * Returns: 0 on success, or an error code if resource initialization fails
+ */
+static int virt_net_driver_open(struct net_device *dev)
+{
+    struct virt_net_dev_priv *priv = netdev_priv(dev);
+
+    /* Initialize any resources required for the virtual network driver */
+    int ret = init_virt_hw_resource(dev);
+    if (ret) {
+        printk(KERN_ERR "%s: Failed to initialize hardware resource\n", dev->name);
+        return ret;
+    }
+
+    /* Initialize the netdev field */
+    priv->netdev = dev;
+    
+    g_rteth_netdev = dev;
+
+    /* Initialize delayed work */
+    INIT_DELAYED_WORK(&priv->work, virt_net_work_callback);
+
+    /* Schedule the delayed work */
+    schedule_delayed_work(&priv->work, msecs_to_jiffies(1000));
+
+    /* Start the network device's transmit queue */
+    netif_start_queue(dev);
+
+    printk(KERN_INFO "%s: Virtual network device opened\n", dev->name);
+
+    return 0;
+}
+
+/*
+ * Function: virt_net_driver_stop
+ * ________________________
+ * Description: stops the network device's transmit queue and cleans up any resources allocated
+ * Parameter(s): dev - pointer to the net_device structure
+ * Returns: 0 on success
+ */
+static int virt_net_driver_stop(struct net_device *dev)
+{
+    struct virt_net_dev_priv * __attribute__((unused)) priv = netdev_priv(dev);
+
+    /* Stop the network device's transmit queue */
+    netif_stop_queue(dev);
+
+    /* Cleanup any resources allocated for the virtual network driver */
+    release_virt_hw_resource(dev);
+    
+    g_rteth_netdev = NULL;
+
+    printk(KERN_INFO "%s: Virtual network device closed\n", dev->name);
+
+    return 0;
+}
+
+/*
+ * Function: virt_net_tx_complete
+ * ________________________
+ * Description: updates network device statistics and wakes up all the transmit queues for the device; frees the skb
+ * Parameter(s): dev - pointer to the net_device structure
+ *               skb - pointer to the sk_buff structure for the packet
+ * Returns: void
+ */
+static void virt_net_tx_complete(struct net_device *dev, struct sk_buff *skb, uint32_t total_len)
+{
+    /* update network device statistics */
+    dev->stats.tx_packets++;
+    dev->stats.tx_bytes += total_len;
+
+    /* Wake up all the transmit queues for the device */
+    netif_tx_wake_all_queues(dev);
+
+    /* Free the skb */
+    dev_kfree_skb(skb);
+}
+
+/*
+ * Function: virt_net_driver_start_xmit
+ * ________________________
+ * Description: locks the virtual transmit FIFO buffer, checks if there is enough space in the buffer for the packet,
+ *              adds the skb to the buffer, and updates network device statistics; stops transmit queue and frees the
+ *              skb if there is not enough space in the buffer or if the packet fails to enqueue; otherwise unlocks the
+ *              buffer and calls virt_net_tx_complete to simulate a successful transmission
+ * Parameter(s): dev - pointer to the net_device structure
+ *               skb - pointer to the sk_buff structure for the packet
+ * Returns: NETDEV_TX_OK if transmission is successful, otherwise NETDEV_TX_BUSY
+ *
+ */
+ 
+struct rteth_send_desc g_rteth_send_desc;
+int liner_size;
+int frag_size;
+
+extern void send_k7_msg(uint32_t msgid, uint32_t msglen);
+
+void prepare_single_rteth_send_buffer(uint8_t * msgbuf, uint32_t * p_msglen)
+{
+	int left_size;
+	uint8_t * cur_ptr;
+	int total_bytes;
+	int msglen;
+	struct sk_buff * skb;
+	int i;
+	struct skb_shared_info *shinfo;
+	int cursize;
+	int temp_size;
+	int off;
+	
+	total_bytes = 0;
+	msglen = *(p_msglen);
+	skb = g_rteth_send_desc.skb;
+	
+	if(g_rteth_send_desc.buf_state == BUFFER_STATE_LEANER)
+	{
+		begin_liner:
+		
+			if( (g_rteth_send_desc.cur_size) <= (g_rteth_send_desc.cur_total_len) )
+				goto enter_frag;
+				
+			left_size = g_rteth_send_desc.cur_size -  g_rteth_send_desc.cur_total_len;
+			
+			if(left_size > SINGLE_RTETH_BUFFER_SIZE)
+			{
+				left_size = SINGLE_RTETH_BUFFER_SIZE;
+			}
+			
+			if( (total_bytes + left_size) >= msglen)
+			{
+				left_size = msglen - total_bytes;
+			}	
+			
+			off = g_rteth_send_desc.index * SINGLE_RTETH_BUFFER_SIZE;
+			
+			cur_ptr = (g_rteth_send_desc.curbuf) + off;
+			
+			memcpy(msgbuf, cur_ptr, left_size);
+			
+			g_rteth_send_desc.cur_total_len += left_size;
+			msgbuf += left_size;
+			total_bytes += left_size;
+			if( total_bytes >= msglen)
+				goto return_from_rteth_send;
+				
+			++(g_rteth_send_desc.index);	
+			
+			goto begin_liner;
+			
+			enter_frag:
+			
+				g_rteth_send_desc.buf_state = BUFFER_STATE_FRAGE;
+				g_rteth_send_desc.index = 0;
+				g_rteth_send_desc.cur_size = frag_size;	
+				g_rteth_send_desc.curbuf = NULL; 
+	}
+	
+	shinfo = skb_shinfo(skb);
+	
+	if(g_rteth_send_desc.buf_state == BUFFER_STATE_FRAGE)
+	{
+		if( ( (g_rteth_send_desc.cur_size) + liner_size) <= (g_rteth_send_desc.cur_total_len) )
+				goto return_from_rteth_send;
+				
+		cursize = 0;		
+		for (i = 0; i < shinfo->nr_frags; i++) 
+		{
+			skb_frag_t *frag = &shinfo->frags[i];
+			temp_size = skb_frag_size(frag);
+			
+			if( (g_rteth_send_desc.index) > i)
+			{
+				cursize += temp_size;
+			}
+			else if((g_rteth_send_desc.index) == i)
+			{
+				if( (cursize + liner_size + temp_size) <= (g_rteth_send_desc.cur_total_len) )
+				{
+					cursize += temp_size;
+					
+					continue;
+				}	
+				
+				left_size = cursize + liner_size + temp_size - (g_rteth_send_desc.cur_total_len);
+				
+				if(left_size > SINGLE_RTETH_BUFFER_SIZE)
+				{
+					left_size = SINGLE_RTETH_BUFFER_SIZE;
+				}
+			
+				if( (total_bytes + left_size) >= msglen)
+				{
+					left_size = msglen - total_bytes;
+				}	
+				
+				if(!(g_rteth_send_desc.curbuf))
+				{
+					g_rteth_send_desc.curbuf = kmap_atomic(skb_frag_page(frag));
+				}	
+				
+				off = skb_frag_off(frag) + (g_rteth_send_desc.cur_total_len) - cursize - liner_size;
+					
+				memcpy(msgbuf, (g_rteth_send_desc.curbuf) + off, left_size);
+				
+				kunmap_atomic(g_rteth_send_desc.curbuf);
+				
+				g_rteth_send_desc.curbuf = NULL;
+				
+				g_rteth_send_desc.cur_total_len += left_size;
+				msgbuf += left_size;
+				total_bytes += left_size;
+				if( total_bytes >= msglen)
+				{
+					g_rteth_send_desc.index = i;
+					
+					goto return_from_rteth_send;
+				}	
+						
+				cursize += temp_size;	
+			}
+			else
+			{
+				if( (cursize + liner_size + temp_size) <= (g_rteth_send_desc.cur_total_len) )
+				{
+					cursize += temp_size;
+					
+					continue;
+				}
+				
+				left_size = cursize + liner_size + temp_size - (g_rteth_send_desc.cur_total_len);
+				
+				if(left_size > SINGLE_RTETH_BUFFER_SIZE)
+				{
+					left_size = SINGLE_RTETH_BUFFER_SIZE;
+				}
+			
+				if( (total_bytes + left_size) >= msglen)
+				{
+					left_size = msglen - total_bytes;
+				}	
+				
+				if(!(g_rteth_send_desc.curbuf))
+				{
+					g_rteth_send_desc.curbuf = kmap_atomic(skb_frag_page(frag));
+				}
+				
+				off = skb_frag_off(frag);	
+				
+				memcpy(msgbuf, (g_rteth_send_desc.curbuf) + off, left_size);
+				
+				kunmap_atomic(g_rteth_send_desc.curbuf);
+				
+				g_rteth_send_desc.curbuf = NULL;
+				
+				g_rteth_send_desc.cur_total_len += left_size;
+				msgbuf += left_size;
+				total_bytes += left_size;
+				if( total_bytes >= msglen)
+				{
+					g_rteth_send_desc.index = i;
+					
+					goto return_from_rteth_send;
+				}
+				
+				cursize += temp_size;
+			}			
+		}
+		
+		g_rteth_send_desc.index = i;	
+	}
+	
+	return_from_rteth_send:
+	
+		*(p_msglen) = total_bytes;
+}	
+
+static netdev_tx_t virt_net_driver_start_xmit(struct sk_buff *skb, struct net_device *dev)
+{
+	#if 0
+	
+    struct virt_net_dev_priv *priv = netdev_priv(dev);
+    int ret;
+    
+    struct iphdr *ip_header;
+    __be32 src_ip, dest_ip;
+    
+    #else
+    
+    uint32_t data_len = 0;
+    struct skb_shared_info *shinfo;
+    int i;
+    int max_count;
+    int temp_size;
+    uint32_t single_size;
+    
+    #endif
+
+    #if 0
+    
+    printk("rteth0: start_xmit called, skb->len: %u\n", skb->len);
+    	
+	ip_header = ip_hdr(skb);
+	
+	if (ip_header->protocol != IPPROTO_UDP) {
+        printk("Not a UDP packet.\n");
+        return NETDEV_TX_OK;
+    }
+    
+    src_ip = ip_header->saddr;
+    dest_ip = ip_header->daddr;
+    
+    printk("Source IP: %pI4\n", &src_ip);
+    printk("Destination IP: %pI4\n", &dest_ip);
+
+    /* Lock the virtual FIFO buffer */
+    spin_lock_bh(&priv->tx_fifo.lock);
+
+    /* Check if there is enough space in the buffer */
+    if (kfifo_avail(&priv->tx_fifo.fifo) < sizeof(skb)) {
+        printk(KERN_ERR "%s: Not enough space in the virtual transmit FIFO buffer\n", dev->name);
+
+        /* Unlock the virtual FIFO buffer */
+        spin_unlock_bh(&priv->tx_fifo.lock);
+
+        /* Update network device statistics */
+        dev->stats.tx_fifo_errors++;
+
+        /* Stop the network device's transmit queue */
+        netif_stop_queue(dev);
+
+        /* Free the skb */
+        dev_kfree_skb(skb);
+
+        return NETDEV_TX_BUSY;
+    }
+
+    /* Add the skb to the virtual FIFO buffer */
+    ret = kfifo_in(&priv->tx_fifo.fifo, &skb, sizeof(skb));
+    if (ret != sizeof(skb)) {
+        printk(KERN_ERR "%s: Failed to enqueue packet to the virtual FIFO buffer\n", dev->name);
+
+        /* Unlock the virtual FIFO buffer */
+        spin_unlock_bh(&priv->tx_fifo.lock);
+
+        /* Update network device statistics */
+        dev->stats.tx_dropped++;
+
+        /* Free the skb */
+        dev_kfree_skb(skb);
+
+        return NETDEV_TX_BUSY;
+    }
+
+    /* Unlock the virtual FIFO buffer */
+    spin_unlock_bh(&priv->tx_fifo.lock);
+
+    /* Simulate a successful transmission by calling virt_net_tx_complete */
+    virt_net_tx_complete(dev, skb);
+    
+    #else
+    
+    if (!skb) {
+        dev_err(&dev->dev, "Invalid skb\n");
+        return NETDEV_TX_OK;
+    }
+    
+    printk("rteth0: start_xmit called, skb->len: %u\n", skb->len);
+    
+    if (!(skb->len)) 
+    {
+        dev_err(&dev->dev, "Invalid skb len\n");
+        
+        return NETDEV_TX_OK;
+    }
+    
+    shinfo = skb_shinfo(skb);
+    
+    liner_size = 0;
+    frag_size = 0;
+    
+    data_len = skb_headlen(skb);
+    liner_size = data_len;
+    for (i = 0; i < shinfo->nr_frags; i++) {
+        skb_frag_t *frag = &shinfo->frags[i];
+        temp_size = skb_frag_size(frag);
+        data_len += temp_size;
+        frag_size += temp_size;
+    }
+    
+    max_count = data_len / SINGLE_RTETH_BUFFER_SIZE;
+    
+    if(data_len % SINGLE_RTETH_BUFFER_SIZE)
+			++max_count;
+			
+	g_rteth_send_desc.buf_state = BUFFER_STATE_LEANER;
+	g_rteth_send_desc.cur_total_len = 0;
+	g_rteth_send_desc.index = 0;
+	g_rteth_send_desc.cur_size = liner_size;
+	g_rteth_send_desc.skb = skb;	
+	g_rteth_send_desc.curbuf = skb->data;
+			
+	for(i = 0; i < max_count; ++i)
+	{
+		if(i == (max_count - 1))
+		{
+			single_size = data_len - (g_rteth_send_desc.cur_total_len);
+		}	
+		else
+		{
+			single_size = SINGLE_RTETH_BUFFER_SIZE;
+		}	
+		
+		send_k7_msg(MSGID_RTETH_SEND, single_size + 4);
+	}			
+    
+    virt_net_tx_complete(dev, skb, data_len);
+    
+    #endif
+
+    return NETDEV_TX_OK;
+}
+
+/*
+ * Function: virt_net_rx_packet
+ * ________________________
+ * Description: locks the virtual receive FIFO buffer, checks if there is enough space in the buffer for the packet,
+ *              and adds the skb to the buffer; updates network device statistics and frees the skb if there is not enough
+ *              space in the buffer or if the packet failed to enqueue; otherwise unlocks the buffer and calls
+ * Parameter(s): dev - pointer to the net_device structure
+ *               skb - pointer to the sk_buff structure for the packet
+ * Returns: void
+ */
+static void virt_net_rx_packet(struct net_device *dev, struct sk_buff *skb)
+{
+    struct virt_net_dev_priv *priv = netdev_priv(dev);
+    int ret;
+
+    /* Lock the virtual receive FIFO buffer */
+    spin_lock_bh(&priv->rx_fifo.lock);
+
+    /* Check if there is enough space in the buffer */
+    if (kfifo_avail(&priv->rx_fifo.fifo) < sizeof(skb)) {
+        printk(KERN_ERR "%s: Not enough space in the virtual receive FIFO buffer\n", dev->name);
+
+        /* Unlock the virtual receive FIFO buffer */
+        spin_unlock_bh(&priv->rx_fifo.lock);
+
+        /* Update network device statistics */
+        dev->stats.rx_dropped++;
+
+        /* Free the skb */
+        dev_kfree_skb(skb);
+
+        return;
+    }
+
+    /* Add the skb to the virtual receive FIFO buffer */
+    ret = kfifo_in(&priv->rx_fifo.fifo, &skb, sizeof(skb));
+    if (ret != sizeof(skb)) {
+        printk(KERN_ERR "%s: Failed to enqueue packet to the virtual receive FIFO buffer\n", dev->name);
+
+        /* Unlock the virtual receive FIFO buffer */
+        spin_unlock_bh(&priv->rx_fifo.lock);
+
+        /* Update network device statistics */
+        dev->stats.rx_dropped++;
+
+        /* Free the skb */
+        dev_kfree_skb(skb);
+
+        return;
+    }
+
+    /* Unlock the virtual receive FIFO buffer */
+    spin_unlock_bh(&priv->rx_fifo.lock);
+}
+
+void rteth_rx_packet(void * data, int len)
+{
+	struct sk_buff *skb;
+    unsigned char * buffer = data;
+    
+	if(!g_rteth_netdev)
+	{
+		printk("rteth netif not open\n");
+		
+		return;
+	}	
+	
+    if (unlikely(len < ETH_HLEN)) {
+        printk("Packet too short: %d bytes\n", len);
+        
+        return;
+    }
+    
+    skb = dev_alloc_skb(len + NET_IP_ALIGN);
+    if (unlikely(!skb)) 
+    {
+        printk("Failed to allocate SKB\n");
+        
+        g_rteth_netdev->stats.rx_dropped++;
+        
+        return;
+    }
+    
+    skb_reserve(skb, NET_IP_ALIGN);
+    
+    skb_put_data(skb, buffer, len);
+    
+    skb->dev = g_rteth_netdev;
+    skb->protocol = eth_type_trans(skb, g_rteth_netdev);
+    skb->ip_summed = CHECKSUM_NONE;
+    
+    g_rteth_netdev->stats.rx_packets++;
+    g_rteth_netdev->stats.rx_bytes += len;
+    
+    netif_rx(skb);
+}
+
+/*
+ * Function: virt_net_work_callback
+ * ________________________
+ * Description: dequeues received packets from the receive FIFO buffer and processes them; reschedules the delayed
+ * work for the driver
+ * Parameter(s): work - pointer to the work_struct structure for the delayed work
+ * Returns: void
+ */
+static void virt_net_work_callback(struct work_struct *work)
+{
+    struct virt_net_dev_priv *priv = container_of(work, struct virt_net_dev_priv, work.work);
+    struct net_device *dev = priv->netdev;
+    struct sk_buff *skb;
+    int ret;
+
+    /* Increment the counter */
+    priv->counter++;
+
+    /* Dequeue the received packets from the receive FIFO buffer */
+    while (!is_rx_fifo_empty(&priv->rx_fifo)) {
+        spin_lock_bh(&priv->rx_fifo.lock);
+        ret = kfifo_out(&priv->rx_fifo.fifo, &skb, sizeof(skb));
+        spin_unlock_bh(&priv->rx_fifo.lock);
+
+        if (ret != sizeof(skb)) {
+            printk(KERN_ERR "%s: Failed to dequeue packet from the virtual receive FIFO buffer\n", dev->name);
+            break;
+        }
+
+        /* Process the received packet */
+        virt_net_rx_packet(dev, skb);
+    }
+
+    /* Reschedule the delayed work */
+    schedule_delayed_work(&priv->work, msecs_to_jiffies(1000));
+}
+
+/*
+ * Function: virt_net_driver_set_mac_address
+ * ________________________
+ * Description: validates and sets the device's MAC address to the new address
+ * Parameter(s): dev - pointer to the net-device structure
+ * Returns: 0 on success, or an error code if the MAC address is invalid
+ */
+static int __attribute__((unused)) virt_net_driver_set_mac_address(struct net_device *dev, void *addr)
+{
+    struct sockaddr *sa = addr;
+
+    /* Validate the new MAC address */
+    if (!is_valid_ether_addr(sa->sa_data)) {
+        printk(KERN_ERR "%s: Invalid MAC address\n", dev->name);
+        return -EADDRNOTAVAIL;
+    }
+
+    /* Update the device's MAC address */
+    memcpy((void*)dev->dev_addr, sa->sa_data, dev->addr_len);
+
+    printk(KERN_INFO "%s: MAC address set to %pM\n", dev->name, dev->dev_addr);
+
+    return 0;
+}
+
+/*
+ * Function: virt_net_driver_do_ioctl
+ * ________________________
+ * Description: handles custom ioctl commands for the virtual network driver
+ * Parameter(s): dev - pointer to the net-device structure
+ *               ifr - pointer to the ifreq structure for the ioctl command
+ *               cmd - the ioctl command to handle
+ * Returns: 0 on success, or an error code if the iotctl command is unsupported
+ */
+static int __attribute__((unused)) virt_net_driver_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+{
+    int ret = -EOPNOTSUPP;
+
+    /* Handle custom ioctl commands for the virtual network driver */
+    switch (cmd) {
+        // case VIRT_NET_DRIVER_CUSTOM_CMD1:
+        //     ret = handle_custom_cmd1(dev, ifr);
+        //     break;
+        // case VIRT_NET_DRIVER_CUSTOM_CMD2:
+        //     ret = handle_custom_cmd2(dev, ifr);
+        //     break;
+        default:
+            printk(KERN_ERR "%s: Unsupported ioctl command: 0x%x\n", dev->name, cmd);
+            break;
+    }
+
+    return ret;
+}
+
+/*
+ * Function: inform_bss
+ * ________________________
+ * Description: Sends BSS information to the kernel
+ * Parameter(s): priv - pointer to the net_device private data
+ * Returns: void
+ */
+static void inform_bss(struct virt_net_dev_priv* priv)
+{
+	u64 boot_time_ns;
+	struct virt_net_dev_priv* current_ap;
+	struct cfg80211_inform_bss inform_bss_data = {
+            .signal = (s32) -50,
+            .scan_width = NL80211_BSS_CHAN_WIDTH_20,
+        };
+    struct cfg80211_bss* bss = NULL;
+    u8 * ie;   
+    u64 tsf; 
+	
+    printk(KERN_INFO "informing bss\n");
+    /* Loop through all APs known in context.  There should only be 1 for our purposes */
+    
+    list_for_each_entry(current_ap, &context->ap_list, ap_node)
+    {
+        printk(KERN_INFO "%s: doing info stuff\n", VIRT_NET_DRIVER_NAME);
+        
+        bss = NULL;
+        
+        inform_bss_data.chan = &current_ap->wdev.wiphy->bands[NL80211_BAND_2GHZ]->channels[0];
+
+        /* allocate memory for and create an information element for the SSID of the current access point */
+        ie = kmalloc(current_ap->ssid_len + 2, GFP_KERNEL);
+        ie[0] = WLAN_EID_SSID;
+        ie[1] = current_ap->ssid_len;
+        memcpy(ie + 2, current_ap->ssid, current_ap->ssid_len);
+
+        /* calculate time stamp of the frame (tsf) for the bss info element; inform the BSS of the specified access point */
+        
+        #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
+			boot_time_ns = ktime_get_boottime_ns();
+		#else
+			boot_time_ns = ktime_to_ns(ktime_get_boottime());
+		#endif
+		
+        tsf = div_u64(boot_time_ns, 1000);
+        bss = cfg80211_inform_bss_data (priv->wdev.wiphy, &inform_bss_data, CFG80211_BSS_FTYPE_UNKNOWN, current_ap->bssid, tsf, WLAN_CAPABILITY_ESS, 100, ie, sizeof(ie), GFP_KERNEL);
+
+        /* inform cfg80211 about the BSS that has been found, then free allocated memory */
+        cfg80211_put_bss(priv->wdev.wiphy, bss);
+        kfree(ie);
+    }
+}
+
+/*
+ * Function: virt_net_driver_cfg_80211_scan
+ * ________________________
+ * Description: initiates a dummy scan of nearby wireless networks
+ * Parameter(s): wiphy - pointer to the wireless device struct
+ *               request - pointer to the scan request struct
+ * Returns: 0 on success, -ERESTARTSYS if the mutex lock is interrupted, -EBUSY if the scan request is already in progress
+ *
+ * adapted from https://github.com/apriorit/Dummy_fullmac_linux_wifi_driver/blob/master/virtualwifi.c
+ */
+static int virt_net_driver_cfg80211_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
+{
+    struct virt_net_dev_priv* priv = get_wiphy_priv(wiphy)->wiphy_priv;
+    
+    printk(KERN_INFO "Virtual Wi-Fi scan initiated\n");
+
+    /* Attempts to acquire the mutex lock to prevent simultaneous access to the shared data */
+    if(mutex_lock_interruptible(&priv->mtx)) {
+        return -ERESTARTSYS;
+    }
+
+    /* If a scan is already in progress, unlock the mutex and return an error */
+    if (priv->scan_request != NULL) {
+        mutex_unlock(&priv->mtx);
+        return -EBUSY;
+    }
+
+    /* Set the new scan request */
+    priv->scan_request = request;
+
+    /* Unlock the mutex */
+    mutex_unlock(&priv->mtx);
+
+    /* Schedule the scan work and return success or an error if the work was already scheduled */
+    if (!schedule_work(&priv->ws_scan)) {
+        return -EBUSY;
+    }
+    return 0;
+}
+
+/*
+ * Function: scan_routine
+ * ________________________
+ * Description: performs dummy scan of nearby wireless networks
+ * Parameter(s): work - pointer to the work struct
+ * Returns: void
+ * 
+ * Adapted from https://github.com/apriorit/Dummy_fullmac_linux_wifi_driver/blob/master/virtualwifi.c
+ */
+static void scan_routine(struct work_struct* work)
+{
+    /* Get the virtual network device from the work struct */
+    struct virt_net_dev_priv* priv = container_of(work, struct virt_net_dev_priv, ws_scan);
+    struct cfg80211_scan_info info = { // create and initialize struct to store scan information
+        .aborted = false,
+    };
+    /* Wait for 100ms to allow for any scan requests to complete */
+    msleep(100);
+    /* Inform AP about the scan */
+    inform_bss(priv);
+    /* Lock mutex to prevent multiple scans at once */
+    if (mutex_lock_interruptible(&priv->mtx)) {
+        return;
+    }
+    /* Call cfg80211_scan_done to indicate scan is complete, set scan_reqeust to NULL to allow future scans, unlock mutex */
+    cfg80211_scan_done(priv->scan_request, &info);
+    priv->scan_request = NULL;
+    mutex_unlock(&priv->mtx);
+}
+
+/*
+ * Function: simulate_assoc_delay
+ * ________________________
+ * Description: helper function to simulate a random association delay
+ * Parameter(s): work - pointer to the work struct
+ * Returns: a random delay between 100ms and 500ms
+ */
+static unsigned int simulate_assoc_delay(void) {
+    return 100 + (get_random_u32() % 400);
+}
+
+/*
+ * Function: simulate_assoc_delay
+ * ________________________
+ * Description: simulates sending an association request to a wireless network
+ * Parameter(s): dev - pointer to the network device struct
+                 params - pointer to the connect parameters struct
+ * Returns: a random delay between 100ms and 500ms
+ */
+static int __attribute__((unused)) virt_wifi_send_assoc(struct net_device *dev, struct cfg80211_connect_params *params) {
+    struct virt_net_dev_priv *netdev_priv_data = netdev_priv(dev);
+    unsigned int assoc_delay;
+
+    /* Simulate the time it takes to send an association request and receive a response */
+    assoc_delay = simulate_assoc_delay();
+    msleep(assoc_delay);
+
+    /* Update the state to reflect successful association */
+    netdev_priv_data->state = VIRT_WIFI_CONNECTED;
+
+    /* Optionally, you can notify the upper layers about the association event */
+    cfg80211_connect_result(dev, params->bssid, params->ie, params->ie_len, NULL, 0, WLAN_STATUS_SUCCESS, GFP_KERNEL);
+
+    /* Return 0 to indicate success */
+    return 0;
+}
+
+/*
+ * Function: virt_net_driver_cfg80211_connect
+ * ________________________
+ * Description: simulates sending an association request to a wireless network
+ * Parameter(s): dev - pointer to the network device struct
+                 params - pointer to the connect parameters struct
+ * Returns: a random delay between 100ms and 500ms
+ *
+ * Adapted from https://github.com/apriorit/Dummy_fullmac_linux_wifi_driver/blob/master/virtualwifi.c
+ */
+static int virt_net_driver_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev, struct cfg80211_connect_params *params) {
+
+    struct virt_net_dev_priv *priv = get_wiphy_priv(wiphy)->wiphy_priv;
+    
+    printk(KERN_INFO "%s: Starting connection...\n", VIRT_NET_DRIVER_NAME);
+
+    /* check if SSID is provided in connection parameters */
+    if(params->ssid == NULL) {
+        return -EBUSY;
+    }
+    printk(KERN_INFO "%s: Init connect 2\n", VIRT_NET_DRIVER_NAME);
+
+    /* Acquire lock on the device's mutex to ensure exclusive access during connection process */
+    if(mutex_lock_interruptible(&priv->mtx)) {
+        return -ERESTARTSYS;
+    }
+    printk(KERN_INFO "%s: Init connect 3\n", VIRT_NET_DRIVER_NAME);
+
+    /* Copy SSID into device's private struct, set null terminator for SSID, save connection request params */
+    memcpy(priv->req_ssid, params->ssid, params->ssid_len);
+    printk(KERN_INFO "%s: Init connect 4\n", VIRT_NET_DRIVER_NAME);
+    priv->ssid[params->ssid_len] = 0;
+    priv->connect_request = params;
+
+    printk(KERN_INFO "%s: Init connect 5\n", VIRT_NET_DRIVER_NAME);
+    mutex_unlock(&priv->mtx);
+
+    /* Schedule work to handle connection process */
+    printk(KERN_INFO "%s: Init connect 6\n", VIRT_NET_DRIVER_NAME);
+    if (!schedule_work(&priv->ws_connect)) {
+        return -EBUSY;
+    }
+
+    return 0;
+}
+
+/*
+ * Function: connect_routine
+ * ________________________
+ * Description: this function is called when the connection work is scheduled; it loops through all known access points
+ *              in the network and compares their SSIDs to the requested SSID. If it finds a match, it informs the BSS
+ *              and simulates an association delay. It updates the state and copies the SSID and BSSID into the priv struct
+ * Parameter(s): work - the work struct scheduled to run the connect_routine
+ * Returns: void
+ *
+ * Adapted for multiple interfaces from https://github.com/apriorit/Dummy_fullmac_linux_wifi_driver/blob/master/virtualwifi.c
+ */
+static void connect_routine(struct work_struct* work)
+{
+    // Get the virtual network device structure from the work queue item
+    struct virt_net_dev_priv* priv = container_of(work, struct virt_net_dev_priv, ws_connect);
+    struct virt_net_dev_priv* ap = NULL;
+    int i = 0;
+    
+    printk(KERN_INFO "%s: CONNECTION ROUTINE 1\n", VIRT_NET_DRIVER_NAME);
+    
+    if (mutex_lock_interruptible(&priv->mtx)) {
+        return;
+    }
+
+    /* Loop through all APs known in context */
+    list_for_each_entry(ap, &context->ap_list, ap_node)
+    {
+        printk(KERN_INFO "%s: Looping %d\n", VIRT_NET_DRIVER_NAME, i);
+        /* Check if the current AP's SSID matches the requested SSID */
+        if (!memcmp(ap->ssid, priv->req_ssid, sizeof(priv->req_ssid))) {
+            printk(KERN_INFO "%s: CONNECTION ROUTINE 2\n", VIRT_NET_DRIVER_NAME);
+
+            printk(KERN_INFO "%s: CONNECTION ROUTINE 3\n", VIRT_NET_DRIVER_NAME);
+            /* inform bss about the AP */
+            inform_bss(priv);
+            printk(KERN_INFO "%s: CONNECTION ROUTINE 4\n", VIRT_NET_DRIVER_NAME);
+            /* connect to the AP */
+            cfg80211_connect_bss(priv->netdev, NULL, NULL, NULL, 0, NULL, 0, WLAN_STATUS_SUCCESS, GFP_KERNEL, NL80211_TIMEOUT_UNSPECIFIED);
+            printk(KERN_INFO "%s: CONNECTION ROUTINE 5\n", VIRT_NET_DRIVER_NAME);
+
+            /* Update the virtual network device's state to indicate that it is connected */
+            priv->state = VIRT_WIFI_CONNECTED;
+            // // cfg80211_connect_result(priv->netdev, ap->bssid, NULL, 0, NULL, 0, WLAN_STATUS_SUCCESS, GFP_KERNEL);
+            memcpy(priv->ssid, priv->req_ssid, priv->ssid_len);
+            printk(KERN_INFO "%s: CONNECTION ROUTINE 6\n", VIRT_NET_DRIVER_NAME);
+            memcpy(priv->bssid, ap->bssid, ETH_ALEN);
+            printk(KERN_INFO "%s: CONNECTION ROUTINE 7\n", VIRT_NET_DRIVER_NAME);
+
+            if (mutex_lock_interruptible(&ap->mtx)) {
+                mutex_unlock(&priv->mtx);
+                return;
+            }
+            printk(KERN_INFO "%s: CONNECTION ROUTINE 8\n", VIRT_NET_DRIVER_NAME);
+            list_add_tail(&priv->bss_list, &ap->bss_list);
+            printk(KERN_INFO "%s: CONNECTION ROUTINE 9\n", VIRT_NET_DRIVER_NAME);
+            mutex_unlock(&ap->mtx);
+            mutex_unlock(&priv->mtx);
+            printk(KERN_INFO "%s: CONNECTION ROUTINE 10\n", VIRT_NET_DRIVER_NAME);
+            return;
+        }
+    }
+
+    mutex_unlock(&priv->mtx);
+    printk(KERN_INFO "%s: CONNECTION ROUTINE ABOUT TO TIMEOUT\n", VIRT_NET_DRIVER_NAME);
+    // cfg80211_connect_timeout(priv->netdev, NULL, NULL, 0, GFP_KERNEL, NL80211_TIMEOUT_SCAN);
+
+}
+
+/*
+ * Function: virt_get_station
+ * ________________________
+ * Description: this function returns information about a station on the network; it iterates over all known interfaces
+ *              and checks if any match the requested MAC address; if it finds a match, it returns dummy information
+ * Parameter(s): wiphy - pointer to the wiphy struct
+                 dev - pointer to the net_device struct
+                 net_addr - MAC address of the station
+                 info - pointer to the station_info struct
+ * Returns: void
+ */
+static int virt_get_station(struct wiphy* wiphy, struct net_device* dev, const u8* net_addr, struct station_info* info)
+{
+    struct virt_net_dev_priv* __attribute__((unused)) priv = netdev_priv(dev);
+    struct virt_net_dev_priv* iterator = NULL;
+
+    // iterate over all known interfaces
+    list_for_each_entry(iterator, &context->if_list, if_node)
+    {
+        // if one matches the requested mac address, return dummy info
+        if (!memcmp(net_addr, iterator->netdev->dev_addr, ETH_ALEN)) {
+            info->filled = BIT_ULL(NL80211_STA_INFO_TX_PACKETS) | BIT_ULL(NL80211_STA_INFO_RX_PACKETS) | BIT_ULL(NL80211_STA_INFO_TX_FAILED) | BIT_ULL(NL80211_STA_INFO_TX_BYTES) | BIT_ULL(NL80211_STA_INFO_RX_BYTES);
+            info->tx_packets = 1;
+            info->rx_packets = 1;
+            info->tx_failed = 1;
+            info->tx_bytes = 1;
+            info->rx_bytes = 1;
+            return 0;
+        }
+    }
+
+    // if none match requested mac address, return (machine is not on network)
+    return -ENONET;
+}
+
+/*
+ * Function: simulate_disassoc_delay
+ * ________________________
+ * Description: this function returns a random disassociation delay to simulate sending a disassociation request and
+ *              receiving a response
+ * Returns: a random delay in the range of 50ms to 250ms
+ */
+static unsigned int simulate_disassoc_delay(void) {
+    /* Helper function to simulate a random disassociation delay */
+    /* Random delay in the range of 50ms to 250ms */
+    return 50 + (get_random_u32() % 200);
+}
+
+/*
+ * Function: virt_net_disconnect
+ * ________________________
+ * Description: this function disconnects the virtual network device; it simulates a disassociation delay and updates the state to reflect a successful disassociation;
+it also releases the associated BSS (if any)
+ * Parameter(s): priv - pointer to the virt_net_dev_priv struct
+ * Returns: void
+ */
+static void __attribute__((unused)) virt_net_disconnect(struct virt_net_dev_priv *priv) {
+    unsigned int disassoc_delay;
+
+    if (priv->state != VIRT_WIFI_CONNECTED) {
+        printk(KERN_INFO "Virtual Wi-Fi is not connected, nothing to disconnect\n");
+        return;
+    }
+
+    /* Simulate the time it takes to send a disassociation request and receive a response */
+    disassoc_delay = simulate_disassoc_delay();
+    msleep(disassoc_delay);
+
+    /* Update the state to reflect successful disassociation */
+    priv->state = VIRT_WIFI_DISCONNECTED;
+
+    /* if there is an associated bss, release it */
+    if (priv->assoc_bss) {
+        cfg80211_put_bss(priv->wiphy, priv->assoc_bss);
+        priv->assoc_bss = NULL;
+    }
+
+    /* reset the channel to null */
+    priv->channel = NULL;
+}
+
+/*
+ * Function: virt_net_driver_cfg80211_disconnect
+ * ________________________
+ * Description: this function is called to initiate disconnection of the virtual network device; it schedules the
+ *              disconnect work and returns 0 on success
+ * Parameter(s): wiphy - pointer to the wiphy struct
+ *               dev - pointer to the net_device struct
+ *               reason_code - reason for the disconnection
+ * Returns: 0 on success, -ERESTARTSYS if interrupted, -EBUSY if work is already schedule
+ *
+ * Adapted from https://github.com/apriorit/Dummy_fullmac_linux_wifi_driver/blob/master/virtualwifi.c
+ */
+static int virt_net_driver_cfg80211_disconnect(struct wiphy *wiphy, struct net_device *dev, u16 reason_code)
+{
+    /* Get the private data associated with the wiphy structure */
+    struct virt_net_dev_priv* priv = get_wiphy_priv(wiphy)->wiphy_priv;
+    if (mutex_lock_interruptible(&priv->mtx)) {
+        return -ERESTARTSYS;
+    }
+
+    /* save reason for disconnection in the private data */
+    priv->disconnect_code = reason_code;
+
+    /* release lock on mutex and schedule work to perform the disconnection */
+    mutex_unlock(&priv->mtx);
+    if (!schedule_work(&priv->ws_disconnect)) {
+        return -EBUSY;
+    }
+    return 0;
+}
+
+/*
+ * Function: disconnect_routine
+ * ________________________
+ * Description: this function is called as a work routine to initiate disconnection of the virtual network device
+ * Parameter(s): work - pointer to the work_struct associated with the disconnect work
+ * Returns: void
+ */
+static void disconnect_routine(struct work_struct* work)
+{
+    struct virt_net_dev_priv* priv = container_of(work, struct virt_net_dev_priv, ws_disconnect);
+    if (mutex_lock_interruptible(&priv->mtx)) {
+        return;
+    }
+
+    /* notify the kernel about the disconnection event, reset the disconnect code */
+    cfg80211_disconnected(priv->netdev, priv->disconnect_code, NULL, 0, true, GFP_KERNEL);
+    priv->disconnect_code = 0;
+    mutex_unlock(&priv->mtx);
+}
+
+/*
+ * Function: virt_net_driver_get_drvinfo
+ * ________________________
+ * Description: this function is called by ethtool to retrieve driver information
+ * Parameter(s): dev - pointer to the net_device struct
+ *               info - pointer to the ethtool_drvinfo struct to be filled with driver information
+ * Returns: void
+ */
+static void virt_net_driver_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+{
+    strlcpy(info->driver, VIRT_NET_DRIVER_NAME, sizeof(info->driver));
+    strlcpy(info->version, VIRT_NET_DRIVER_VERSION, sizeof(info->version));
+    snprintf(info->bus_info, sizeof(info->bus_info), "virtual (Vendor: 0x%04X, Device: 0x%04X)", VIRT_NET_VENDOR_ID, VIRT_NET_DEVICE_ID);
+}
+
+/*
+ * Function: virt_net_driver_get_link
+ * ________________________
+ * Description: this function is called to get the link state of the virtual network device
+ * Parameter(s): dev - pointer to the net_device struct
+ *               info - pointer to the ethtool_drvinfo struct to be filled with driver information
+ * Returns: 1 to indicate that the link is up, since this is a virtual driver
+ */
+static uint32_t virt_net_driver_get_link(struct net_device *dev)
+{
+    return 1;
+}
+
+/*
+ * Function: virt_net_driver_get_link_ksettings
+ * ________________________
+ * Description: gets the current link settings of the virtual network device and sets default/fixed values
+ * Parameter(s): dev - pointer to the net_device struct
+ * Returns: 0 on success
+ */
+static int virt_net_driver_get_link_ksettings(struct net_device *dev, struct ethtool_link_ksettings *ks)
+{
+    // For a virtual driver, we can set default/fixed values
+    ks->base.speed = SPEED_2500;    // 2.5 Gbps
+    ks->base.duplex = DUPLEX_FULL;  // Full duplex
+    return 0;
+}
+
+/*
+ * Function: virt_net_driver_set_link_ksettings
+ * ________________________
+ * Description: sets the current link settings of the virtual network device; ignores settings since this is a virtual
+ *              driver
+ * Parameter(s): dev - pointer to the net_device struct
+ * Returns: 0 on success
+ */
+static int virt_net_driver_set_link_ksettings(struct net_device *dev, const struct ethtool_link_ksettings *ks)
+{
+    // Set the link settings based on the provided ethtool_link_ksettings struct
+    // As this is a virtual driver, we can ignore the settings and return success
+    return 0;
+}
+
+/* Assign the net_device operations */
+static const struct net_device_ops virt_net_dev_ops = {
+    .ndo_open = virt_net_driver_open,
+    .ndo_stop = virt_net_driver_stop,
+    .ndo_start_xmit = virt_net_driver_start_xmit,
+    // .ndo_set_mac_address = virt_net_driver_set_mac_address,
+    // .ndo_do_ioctl = virt_net_driver_do_ioctl,
+};
+
+static const struct ethtool_ops virt_net_ethtool_ops = {
+/* Assign the ethtool operations */
+    .get_drvinfo = virt_net_driver_get_drvinfo,
+    .get_link = virt_net_driver_get_link,
+    .get_link_ksettings = virt_net_driver_get_link_ksettings,
+    .set_link_ksettings = virt_net_driver_set_link_ksettings,
+    // ... other ethtool operations
+};
+
+/*
+ * Function: virt_if_add
+ * ________________________
+ * Description: this function is called to create a virtual network interface and add it to the global context
+ * Parameter(s): wiphy - pointer to the wiphy struct
+ * Returns: 0 on success, -ENOMEM on failure to allocate memory or register the device
+ */
+static int virt_if_add(struct wiphy* wiphy, int identifier)
+{
+    int error;
+
+    /* New net device */
+    struct net_device* virt_net_dev = NULL;
+
+    /* Private values of new net device */
+    struct virt_net_dev_priv *priv = NULL;
+
+    struct virt_wiphy_priv* wpriv = NULL;
+    
+    char hw_name[ETH_ALEN + 1] = {0};
+
+    /* Allocating new device */
+    virt_net_dev = alloc_netdev(sizeof(struct virt_net_dev_priv), NET_DEV_NAME, NET_NAME_ENUM, ether_setup);
+    if (!virt_net_dev) {
+        printk(KERN_ERR "%s: Failed to allocate net_device\n", VIRT_NET_DRIVER_NAME);
+
+        /* Free wiphy object if necessary */
+        if (priv->wiphy) {
+            wiphy_unregister(priv->wiphy);
+            wiphy_free(priv->wiphy);
+        }
+        return -ENOMEM;
+    }
+    else {
+        printk(KERN_INFO "%s: private virtual net_device allocated\n", VIRT_NET_DRIVER_NAME);
+    }
+
+    /* Getting priv values */
+    priv = netdev_priv(virt_net_dev);
+    wpriv = get_wiphy_priv(wiphy);
+    wpriv->wiphy_priv = priv;
+    /* Setting private values */
+    priv->netdev = virt_net_dev;
+
+    /* Wireless_dev values */
+    priv->wdev.wiphy = wiphy;
+    priv->wdev.netdev = virt_net_dev;
+    priv->wdev.iftype = NL80211_IFTYPE_STATION;
+    priv->netdev->ieee80211_ptr = &priv->wdev;
+    priv->scan_request = NULL;
+    priv->netdev->features |= NETIF_F_HW_CSUM;
+
+	/* Set the device's name */
+    snprintf(hw_name + 1, ETH_ALEN, "%s%d", VIRT_NET_INTF_NAME, identifier);
+    // This function does not work on Kernel version < 5.4. On kernel < 5.4, use memcpy
+    
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+		eth_hw_addr_set(priv->netdev, hw_name);
+	#else
+		memcpy(priv->netdev->dev_addr, hw_name, ETH_ALEN);
+	#endif
+
+    /* Assign ops */
+    virt_net_dev->netdev_ops = &virt_net_dev_ops;
+    virt_net_dev->ethtool_ops = &virt_net_ethtool_ops;
+
+    /* Register device */ 
+    error = register_netdev(priv->netdev);
+    if (error) {
+        printk(KERN_ERR "%s: Failed to register net_device\n", VIRT_NET_DRIVER_NAME);
+        free_netdev(priv->netdev);
+        wiphy_unregister(wiphy);
+        wiphy_free(wiphy);
+        return -ENOMEM;
+    }
+
+    memset(priv->bssid, 0, ETH_ALEN);
+    memset(priv->ssid, 0, IEEE80211_MAX_SSID_LEN);
+    priv->state = VIRT_WIFI_DISCONNECTED;
+    priv->ap = NULL;
+    /* init mutex and work*/
+    mutex_init(&priv->mtx);
+    INIT_WORK(&priv->ws_scan, scan_routine);
+    INIT_WORK(&priv->ws_connect, connect_routine);
+    INIT_WORK(&priv->ws_disconnect, disconnect_routine);
+
+    /* init buffers */
+    init_virt_hw_resource(priv->netdev);
+
+    /* Add to interface list */
+    mutex_lock(&context->mtx);
+    list_add_tail(&priv->if_node, &context->if_list);
+    mutex_unlock(&context->mtx);
+
+    // virt_net_driver_open(priv->netdev);
+
+    return 0;
+}
+
+/*
+ * Function: virt_if_configure
+ * ________________________
+ * Description: kernel callback for changing interface type; to be used in struct cfg80211_ops
+ * Parameter(s): wiphy - pointer to the wiphy struct
+ *               dev - pointer to the net_device struct
+ *               type - the new interface type
+ *               params - additional parameters for the new interface type
+ * Returns: 0 on success, -EINVAL if an invalid interface type is provided
+ */
+static int virt_if_configure(struct wiphy* wiphy, struct net_device* dev, enum nl80211_iftype type, struct vif_params* params)
+{
+    switch (type) {
+        case NL80211_IFTYPE_STATION:
+            dev->ieee80211_ptr->iftype = NL80211_IFTYPE_STATION;
+            break;
+        case NL80211_IFTYPE_AP:
+            dev->ieee80211_ptr->iftype = NL80211_IFTYPE_AP;
+            break;
+        default:
+            printk(KERN_ERR "%s: Failed to change interface -- Invalid interface type [%u]\n", VIRT_NET_DRIVER_NAME, type);
+            return -EINVAL;
+    }
+    return 0;
+}
+
+/*
+ * Function: virt_if_delete
+ * ________________________
+ * Description: deletes a virtual interface and frees all associated memory
+ * Parameter(s): priv - pointer to the virt_net_dev_priv struct representing the virtual interface
+ * Returns: 0 on success, -EINVAL if invalid argument provided
+ */
+static int virt_if_delete(struct virt_net_dev_priv* priv)
+{
+    struct wiphy* wiphy = priv->wdev.wiphy;
+
+    // stop AP if device in an AP
+    if (priv->is_ap) {
+		
+		/*#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0))*/
+		#if 1
+		
+			ap_terminate(wiphy, priv->netdev);
+		
+		#else
+		
+			ap_terminate(wiphy, priv->netdev, 0);
+			
+		#endif	
+    } 
+
+    // stop pending work
+    cancel_work_sync(&priv->ws_scan);
+    cancel_work_sync(&priv->ws_connect);
+    cancel_work_sync(&priv->ws_disconnect);
+
+    //TODO: Error checking -- but I'm just happy it works for now ;_;
+    mutex_lock(&priv->mtx);
+    // stop transfer queues and queued work
+    netif_stop_queue(priv->netdev);
+
+    mutex_unlock(&priv->mtx);
+
+    // unregister device
+    unregister_netdev(priv->netdev);
+    // free device
+    free_netdev(priv->netdev);
+
+    // unregister wiphy dev
+    wiphy_unregister(wiphy);
+    // free wiphy
+    wiphy_free(wiphy);
+
+    // free wiphy device
+    return 0;
+}
+
+/* FullMAC driver functions
+ * Represents functionalities of the wiphy device
+ */
+static struct cfg80211_ops wifi_dev_ops = {
+    .change_virtual_intf = virt_if_configure,
+    .scan = virt_net_driver_cfg80211_scan,
+    .connect = virt_net_driver_cfg80211_connect,
+    .disconnect = virt_net_driver_cfg80211_disconnect,
+    .get_station = virt_get_station,
+    .start_ap = ap_init,
+    .stop_ap = ap_terminate,
+};
+
+/* Supported channels for wifi device */
+/* https://en.wikipedia.org/wiki/List_of_WLAN_channels */
+static struct ieee80211_channel supported_channels[] = {
+    {.band = NL80211_BAND_2GHZ, .hw_value = 1,  .center_freq = 2412,},
+    {.band = NL80211_BAND_2GHZ, .hw_value = 2,  .center_freq = 2417,},
+    {.band = NL80211_BAND_2GHZ, .hw_value = 3,  .center_freq = 2422,},
+    {.band = NL80211_BAND_2GHZ, .hw_value = 4,  .center_freq = 2427,},
+    {.band = NL80211_BAND_2GHZ, .hw_value = 5,  .center_freq = 2432,},
+    {.band = NL80211_BAND_2GHZ, .hw_value = 6,  .center_freq = 2437,},
+    {.band = NL80211_BAND_2GHZ, .hw_value = 7,  .center_freq = 2442,},
+    {.band = NL80211_BAND_2GHZ, .hw_value = 8,  .center_freq = 2447,},
+    {.band = NL80211_BAND_2GHZ, .hw_value = 9,  .center_freq = 2452,},
+    {.band = NL80211_BAND_2GHZ, .hw_value = 10, .center_freq = 2457,},
+    {.band = NL80211_BAND_2GHZ, .hw_value = 11, .center_freq = 2462,},
+    {.band = NL80211_BAND_2GHZ, .hw_value = 12, .center_freq = 2467,},
+    {.band = NL80211_BAND_2GHZ, .hw_value = 13, .center_freq = 2472,},
+    {.band = NL80211_BAND_2GHZ, .hw_value = 14, .center_freq = 2487,},
+};
+
+/* Supported rates for wifi device */
+static struct ieee80211_rate supported_rates[] = {
+    {.bitrate = 10,  .hw_value = 0x1,},
+    {.bitrate = 20,  .hw_value = 0x2,},
+    {.bitrate = 55,  .hw_value = 0x4,},
+    {.bitrate = 110, .hw_value = 0x8,},
+    {.bitrate = 60,  .hw_value = 0x10,},
+    {.bitrate = 90,  .hw_value = 0x20,},
+    {.bitrate = 120, .hw_value = 0x40,},
+    {.bitrate = 180, .hw_value = 0x80,},
+    {.bitrate = 240, .hw_value = 0x100,},
+    {.bitrate = 360, .hw_value = 0x200,},
+    {.bitrate = 480, .hw_value = 0x400,},
+    {.bitrate = 540, .hw_value = 0x800,},
+};
+
+/* Supported bands for wifi device */
+static struct ieee80211_supported_band supported_bands = {
+    .ht_cap.cap = IEEE80211_HT_CAP_SGI_20,
+    .ht_cap.ht_supported = false,
+    .bitrates = supported_rates,
+    .n_bitrates = ARRAY_SIZE(supported_rates),
+    .channels = supported_channels,
+    .n_channels = ARRAY_SIZE(supported_channels),
+};
+
+/* create a wiphy device */
+static struct wiphy* wiphy_add(void)
+{
+    int error = 0;
+    struct wiphy* wiphy = NULL;
+
+    // allocate new wiphy structure
+    wiphy = wiphy_new_nm(&wifi_dev_ops, 0, NULL);
+    if (!wiphy) {
+        printk(KERN_ERR "%s: Failed to allocate new wiphy device\n", VIRT_NET_DRIVER_NAME);
+        return NULL;
+    }
+
+    // type of interface
+    // AP or STA
+    wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) | BIT(NL80211_IFTYPE_AP);
+
+    // supported bands
+    wiphy->bands[NL80211_BAND_2GHZ] = &supported_bands;
+
+    // flags
+    wiphy->flags |= WIPHY_FLAG_NETNS_OK;
+
+    wiphy->max_scan_ssids = 10;
+
+    // regsiter wiphy 
+    error = wiphy_register(wiphy);
+    if (error < 0) {
+        printk(KERN_ERR "%s: Failed to register new wiphy device\n", VIRT_NET_DRIVER_NAME);
+        wiphy_free(wiphy);
+        return NULL;
+    }
+
+    return wiphy;
+}
+
+/*
+ * Function: ap_init
+ * ________________________
+ * Description: callback to initialize an interface as an AP
+ * Parameter(s): dev - pointer to the net_device struct
+ *               ap_settings - pointer to the cfg80211_ap_settings struct containing access point settings
+ * Returns: 0 on success, negative error code on failure
+ */
+static int ap_init(struct wiphy* wiphy, struct net_device* dev, struct cfg80211_ap_settings* ap_settings)
+{
+    struct virt_net_dev_priv* priv = netdev_priv(dev);
+
+    // set ssid and bssid
+    priv->ssid_len = ap_settings->ssid_len;
+    memcpy(priv->ssid, ap_settings->ssid, ap_settings->ssid_len);
+    memcpy(priv->bssid, priv->netdev->dev_addr, ETH_ALEN);
+    /*printk(KERN_INFO "%s: bssid changed: %x\n", priv->bssid);*/
+
+    // add to ap list
+    list_add_tail(&priv->ap_node, &context->ap_list);
+
+    // initialize bss list 
+    INIT_LIST_HEAD(&priv->bss_list);
+
+    priv->is_ap = true;
+
+    return 0;
+}
+
+/*
+ * Function: ap_terminate
+ * ________________________
+ * Description: callback to terminate an interface as an AP
+ * Parameter(s): dev - pointer to the net_device struct
+ *               wiphy - pointer to the wiphy struct
+ *               link_id - identifier for the link
+ * Returns: 0 on success, ENOMEM on error
+ */
+/*#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0))*/
+#if 1
+static int ap_terminate(struct wiphy* wiphy, struct net_device* dev)
+#else
+static int ap_terminate(struct wiphy* wiphy, struct net_device* dev, unsigned int link_id)
+#endif
+{
+    struct virt_net_dev_priv* priv = netdev_priv(dev);
+    struct virt_net_dev_priv *list_pos = NULL, *tmp = NULL;
+
+    /* Check if device is an AP */
+    if (!priv->is_ap) {
+        printk(KERN_ERR "%s: Attempting to terminate AP of a non-AP interface\n", VIRT_NET_DRIVER_NAME);
+        // maybe could use a different error code
+        return -ENOMEM;
+    }
+
+    /* Stop beaconing */
+    // we don't really need to do this because we are not really scanning?
+
+    /* Delete BSS list */
+    // loop through bss list
+    list_for_each_entry_safe(list_pos, tmp, &priv->bss_list, bss_list)
+    {
+        list_del(&tmp->bss_list);
+    }
+
+    /* Remove from context's ap_list */
+    mutex_lock(&context->mtx);
+    list_del(&priv->ap_node);
+    mutex_unlock(&context->mtx);
+
+    /* set interface to non AP */
+    priv->is_ap = false;
+    return 0;
+}
+
+/*
+ * Function: virt_net_driver_init
+ * ________________________
+ * Description:  Initializes the virtual network driver by allocating and initializing the adapter context, creating
+ *               virtual interfaces, and adding them to the global context
+ * Parameter(s): none
+ * Returns: 0 on success, -ENOMEM if failed to allocate adapter context or create virtual interfaces
+ */
+static int __init virt_net_driver_init(void)
+{
+    int __attribute__((unused)) ret;
+    int i;
+    
+    printk(KERN_INFO "%s: Attempting to load virtual network driver...\n", VIRT_NET_DRIVER_NAME);
+
+    /* Allocate and initialize adapter context */ 
+    context = kmalloc(sizeof(struct virt_adapter_context), GFP_KERNEL);
+    if(!context) {
+      printk(KERN_ERR "%s: Failed to allocate adapter_context\n", VIRT_NET_DRIVER_NAME);
+      return -ENOMEM;
+    }
+    else {
+        printk(KERN_INFO "%s: Adapter_context allocated\n", VIRT_NET_DRIVER_NAME);
+    }
+
+    printk(KERN_INFO "%s: Initializing context mutex and lists\n", VIRT_NET_DRIVER_NAME);
+    /* init global lists */
+    mutex_init(&context->mtx);
+    INIT_LIST_HEAD(&context->ap_list);
+    INIT_LIST_HEAD(&context->if_list);
+    printk(KERN_INFO "%s: Context mutex and lists initialized\n", VIRT_NET_DRIVER_NAME);
+
+    printk(KERN_INFO "%s: Creating interfaces\n", VIRT_NET_DRIVER_NAME);
+    for (i = 0; i < MAX_IF_NUM; i++)
+    {
+        struct wiphy* wiphy = wiphy_add();
+        if (wiphy == NULL) {
+            return -ENOMEM;
+        }
+        virt_if_add(wiphy, i);
+    }
+    printk(KERN_INFO "%s: Interfaces created\n", VIRT_NET_DRIVER_NAME);
+
+
+    printk(KERN_INFO "%s: Virtual network driver loaded\n", VIRT_NET_DRIVER_NAME);
+    return 0;
+}
+
+/*
+ * Function: virt_net_driver_exit
+ * ________________________
+ * Description:  function called when unloading the virtual network driver; deletes each virtual interface and frees
+ *               the context
+ * Parameter(s): none
+ * Returns: void
+ */
+static void __exit virt_net_driver_exit(void)
+{
+
+    /* Free each virtual interface */ 
+    struct virt_net_dev_priv *priv = NULL, *tmp = NULL;
+    list_for_each_entry_safe(priv, tmp, &context->if_list, if_node)
+    {
+        virt_if_delete(priv);
+    }
+
+    /* Free context */
+     kfree(context);
+
+
+    printk(KERN_INFO "%s: Virtual network driver unloaded\n", VIRT_NET_DRIVER_NAME);
+}
+
+module_init(virt_net_driver_init);
+module_exit(virt_net_driver_exit);

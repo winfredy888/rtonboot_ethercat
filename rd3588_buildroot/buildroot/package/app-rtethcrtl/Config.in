@@ -1,0 +1,5 @@
+config BR2_PACKAGE_APP_RTETHCRTL
+	bool "rtethcrtl"
+	help
+	  Winfred Young rtethcrtl script
+	  

@@ -1,0 +1,66 @@
+############################################################################
+# drivers/wireless/bluetooth/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+# Include nothing if Bluetooth is disabled
+
+ifeq ($(CONFIG_ETHERCAT_stmmac),y)
+
+CSRCS += patch.c
+CSRCS += mempool.c
+CSRCS += skb.c
+CSRCS += stmmac_main.c
+CSRCS += rkpriv.c
+CSRCS += stmmac_mdio.c
+CSRCS += phy_realtek.c
+CSRCS += icosdev.c
+## CSRCS += dwmac-generic.c
+CSRCS += chain_mode.c
+CSRCS += dwmac1000_core.c
+CSRCS += dwmac1000_dma.c
+CSRCS += dwmac100_core.c
+CSRCS += dwmac100_dma.c
+CSRCS += dwmac4_core.c
+CSRCS += dwmac4_descs.c
+CSRCS += dwmac4_dma.c
+CSRCS += dwmac4_lib.c
+CSRCS += dwmac5.c
+CSRCS += dwmac_lib.c
+## CSRCS += dwmac-rk-tool.c
+CSRCS += dwxgmac2_core.c
+CSRCS += dwxgmac2_descs.c
+CSRCS += dwxgmac2_dma.c
+CSRCS += enh_desc.c
+CSRCS += hwif.c
+CSRCS += mmc_core.c
+CSRCS += norm_desc.c
+CSRCS += ring_mode.c
+## CSRCS += stmmac_ethtool.c
+## CSRCS += stmmac_hwtstamp.c
+## CSRCS += stmmac_platform.c
+## CSRCS += stmmac_ptp.c
+## CSRCS += stmmac_tc.c
+
+# Include common Bluetooth driver build support
+
+DEPPATH += --dep-path ethercat$(DELIM)stmmac
+VPATH += :ethercat$(DELIM)stmmac
+CFLAGS += ${INCDIR_PREFIX}$(TOPDIR)$(DELIM)drivers$(DELIM)ethercat$(DELIM)stmmac
+
+endif # CONFIG_ETHERCAT_stmmac

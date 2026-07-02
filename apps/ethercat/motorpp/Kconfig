@@ -1,0 +1,29 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config ETHERCAT_SOEM_MOTORPP
+	tristate "ETHERCAT SOEM MOTORPP"
+	default n
+	---help---
+		ETHERCAT SOEM MOTORPP Program
+
+if ETHERCAT_SOEM_MOTORPP
+
+config ETHERCAT_SOEM_MOTORPP_PROGNAME
+	string "Program name"
+	default "motorpp"
+	---help---
+		This is the name of the program that will be used when the NSH ELF
+		program is installed.
+
+config ETHERCAT_SOEM_MOTORPP_PRIORITY
+	int "SOEM MOTORPP Program task priority"
+	default 128
+
+config ETHERCAT_SOEM_MOTORPP_STACKSIZE
+	int "SOEM MOTORPP Program stack size"
+	default DEFAULT_TASK_STACKSIZE
+
+endif

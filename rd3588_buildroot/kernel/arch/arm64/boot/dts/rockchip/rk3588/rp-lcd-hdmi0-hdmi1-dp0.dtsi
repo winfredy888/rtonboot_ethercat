@@ -1,0 +1,3 @@
+#include "rp-lcd-hdmi0.dtsi"          // batch ignore
+#include "rp-lcd-hdmi1.dtsi"          // batch ignore
+#include "rp-lcd-typec-dp0.dtsi"      // usb dp0, must be enable rp-usb-typec.dtsi, batch ignore

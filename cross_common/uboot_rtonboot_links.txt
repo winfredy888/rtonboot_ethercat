@@ -1,0 +1,3 @@
+rd3588_buildroot/u-boot/common/jihuoma.h -> jihuoma.h
+rd3588_buildroot/u-boot/include/rtonboot/offset_common.h -> offset_common.h
+rd3588_buildroot/u-boot/rtonboot/jihuoma.h -> jihuoma.h

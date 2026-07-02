@@ -1,0 +1,4 @@
+RK_YOCTO_CFG="rockchip-rk3399-linux-sapphire-excavator"
+RK_KERNEL_DTS_NAME="rk3399/rp-box-rk3399"
+RK_ROOTFS_SYSTEM_OPENKYLIN=y
+RK_KERNEL_CFG_FRAGMENTS="rockchip_wifi_builtin.config"

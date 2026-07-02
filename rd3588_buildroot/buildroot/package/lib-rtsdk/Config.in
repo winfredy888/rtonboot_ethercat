@@ -1,0 +1,4 @@
+config BR2_PACKAGE_LIB_RTSDK
+    bool "RTSDKLib static library"
+    help
+      This option enables building of RTSDKLib as a static library.

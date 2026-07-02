@@ -1,0 +1,5 @@
+config BR2_PACKAGE_APP_EC_INTER
+	bool "ec_inter"
+	help
+	  Winfred Young ec_inter command
+	  

@@ -1,0 +1,29 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config ETHERCAT_SOEM_SIMPLETEST
+	tristate "ETHERCAT SOEM SIMPLETEST"
+	default n
+	---help---
+		ETHERCAT SOEM SIMPLETEST Program
+
+if ETHERCAT_SOEM_SIMPLETEST
+
+config ETHERCAT_SOEM_SIMPLETEST_PROGNAME
+	string "Program name"
+	default "simpletest"
+	---help---
+		This is the name of the program that will be used when the NSH ELF
+		program is installed.
+
+config ETHERCAT_SOEM_SIMPLETEST_PRIORITY
+	int "SOEM SIMPLETEST Program task priority"
+	default 128
+
+config ETHERCAT_SOEM_SIMPLETEST_STACKSIZE
+	int "SOEM SIMPLETEST Program stack size"
+	default DEFAULT_TASK_STACKSIZE
+
+endif

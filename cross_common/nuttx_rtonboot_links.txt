@@ -1,0 +1,5 @@
+nuttx/arch/arm64/src/rk3588/msg_common_struct.h -> msg_common_struct.h
+nuttx/arch/arm64/src/rk3588/jihuoma.h -> jihuoma.h
+nuttx/arch/arm64/src/rk3588/msgid.h -> msgid.h
+nuttx/arch/arm64/src/rk3588/offset_common.h -> offset_common.h
+nuttx/arch/arm64/src/rk3588/rt_common_internal.h -> rt_common_internal.h

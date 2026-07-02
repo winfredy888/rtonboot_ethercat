@@ -1,0 +1,153 @@
+#include "../../../../../../drivers/soc/rockchip/rk_camera_sensor_info.h"
+
+/{
+        cif_sensor: cif_sensor {
+                compatible = "rockchip,sensor";
+                status = "okay";
+
+		ov5640_a {
+			status = "okay";
+                        is_front = <0>;
+                        powerdown-gpios = <&gpio1 RK_PB5 GPIO_ACTIVE_HIGH>;
+                        pwdn_active = <ov5640_PWRDN_ACTIVE>;
+                        pwr_active = <PWR_ACTIVE_HIGH>;
+                        rockchip,power_pmu_name1 = "vcc2v8_dvp";
+                        rockchip,power_pmu_voltage1 = <2800000>;
+                        rockchip,power_pmu_name2 = "vcc1v8_dvp";
+                        rockchip,power_pmu_voltage2 = <1800000>;
+                        mir = <0>;
+                        flash_attach = <0>;
+                        resolution = <ov5640_FULL_RESOLUTION>;
+                        powerup_sequence = <ov5640_PWRSEQ>;
+                        orientation = <0>;
+                        i2c_add = <ov5640_I2C_ADDR>;
+                        i2c_chl = <2>;
+                        cif_chl = <0>;
+                        mclk_rate = <24>;
+                };
+	/*
+                gc2145_b {
+                        is_front = <0>;
+                        powerdown-gpios = <&gpio2 RK_PB5 GPIO_ACTIVE_HIGH>;
+                        pwdn_active = <gc2145_PWRDN_ACTIVE>;
+                        pwr_active = <PWR_ACTIVE_HIGH>;
+                        rockchip,power_pmu_name1 = "vcc2v8_dvp";
+                        rockchip,power_pmu_voltage1 = <2800000>;
+                        rockchip,power_pmu_name2 = "vcc1v8_dvp";
+                        rockchip,power_pmu_voltage2 = <1800000>;
+                        mir = <0>;
+                        flash_attach = <0>;
+                        resolution = <gc2145_FULL_RESOLUTION>;
+                        powerup_sequence = <gc2145_PWRSEQ>;
+                        orientation = <90>;
+                        i2c_add = <gc2145_I2C_ADDR>;
+                        i2c_chl = <2>;
+                        cif_chl = <0>;
+                        mclk_rate = <24>;
+                };
+
+                gc0312_f {
+                        is_front = <1>;
+                        powerdown-gpios = <&gpio2 RK_PB6 GPIO_ACTIVE_HIGH>;
+                        pwdn_active = <gc0312_PWRDN_ACTIVE>;
+                        pwr_active = <PWR_ACTIVE_HIGH>;
+                        rockchip,power_pmu_name1 = "vcc2v8_dvp";
+                        rockchip,power_pmu_voltage1 = <2800000>;
+                        rockchip,power_pmu_name2 = "vcc1v8_dvp";
+                        rockchip,power_pmu_voltage2 = <1800000>;
+                        mir = <0>;
+                        flash_attach = <0>;
+                        resolution = <gc0312_FULL_RESOLUTION>;
+                        powerup_sequence = <gc0312_PWRSEQ>;
+                        orientation = <270>;
+                        i2c_add = <gc0312_I2C_ADDR>;
+                        i2c_chl = <2>;
+                        cif_chl = <0>;
+                        mclk_rate = <24>;
+                };
+	*/
+        };
+};
+
+&isp_mmu {
+        status = "okay";
+};
+
+&i2c2 {                 
+        status = "okay";
+                        
+        clock-frequency = <100000>;
+                        
+        /* These are relatively safe rise/fall times; TODO: measure */
+        i2c-scl-falling-time-ns = <50>;
+        i2c-scl-rising-time-ns = <300>;
+                        
+        ov13850_a: ov13850_a@10 {
+		status = "okay";
+		compatible = "ovti,ov13850";
+                reg = <0x10>;
+                clocks = <&cru SCLK_CIF_OUT>;
+                clock-names = "xvclk";
+                /*reset-gpios = <&gpio2 14 GPIO_ACTIVE_HIGH>;*/
+                pwdn-gpios = <&gpio1 RK_PB6 GPIO_ACTIVE_HIGH>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&cif_clkout_m0>;
+                rockchip,camera-module-index = <0>;
+                rockchip,camera-module-facing = "back";
+                rockchip,camera-module-name = "CMK-CT0116";
+                rockchip,camera-module-lens-name = "Largan-50013A1";
+                port {  
+                        ov13850_out: endpoint {
+                                remote-endpoint = <&mipi_in>;
+                                data-lanes = <1 2>;
+                        };
+                };
+        };
+};
+
+&mipi_dphy_rx0 {
+        status = "okay";
+
+        ports {
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                port@0 {
+                        reg = <0>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+                        mipi_in: endpoint@1 {
+                                reg = <1>;
+                                remote-endpoint = <&ov13850_out>;
+                                data-lanes = <1 2>;
+                        };
+                };
+
+                port@1 {
+                        reg = <1>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+                        dphy_rx_out: endpoint@0 {
+                                reg = <0>;
+                                remote-endpoint = <&isp_mipi_in>;
+                        };
+                };
+        };
+};
+
+&rkisp1 {
+        status = "okay";
+
+        port {
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                isp_mipi_in: endpoint@0 {
+                        reg = <0>;
+                        remote-endpoint = <&dphy_rx_out>;
+                };
+
+        };
+};

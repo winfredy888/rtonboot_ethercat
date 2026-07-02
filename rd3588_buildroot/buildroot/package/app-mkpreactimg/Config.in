@@ -1,0 +1,5 @@
+config BR2_PACKAGE_APP_MKPREACTIMG
+	bool "mkpreactimg"
+	help
+	  Winfred Young mkpreactimg command
+	  

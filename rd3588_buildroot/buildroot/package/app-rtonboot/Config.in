@@ -1,0 +1,5 @@
+config BR2_PACKAGE_APP_RTONBOOT
+	bool "rtonboot"
+	help
+	  Winfred Young rtonboot command
+	  

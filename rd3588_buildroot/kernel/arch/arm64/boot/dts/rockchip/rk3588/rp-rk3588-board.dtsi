@@ -1,0 +1,182 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2021 Rockchip Electronics Co., Ltd.
+ *
+ */
+
+/dts-v1/;
+
+/* merage dtsi in rk3588-evb4-lp4-v10-linux.dts */
+
+#include "dt-bindings/usb/pd.h"
+#include "../rk3588j.dtsi"
+#include "../rk3588-evb.dtsi"
+#include "../rk3588-rk806-single.dtsi"
+#include "../rk3588-linux.dtsi"
+
+/ {
+    model = "Rockchip RK3588 EVB4 LP4 V10 Board";
+    compatible = "rockchip,rk3588-evb4-lp4-v10", "rockchip,rk3588";
+};
+
+&rkcif {
+  status = "okay";
+};
+
+&rkcif_mmu {
+  status = "okay";
+};
+
+&wdt {
+  status = "okay";
+};
+
+&dsi0 {
+    status = "disabled";
+    /delete-node/ panel@0;
+    ports {
+        /delete-node/ port@1;
+    };
+};
+
+&dsi1 {
+    status = "disabled";
+    /delete-node/ panel@0;
+    ports {
+        /delete-node/ port@1;
+    };
+};
+
+&i2c0 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c0m2_xfer>;
+
+    vdd_cpu_big0_s0: vdd_cpu_big0_mem_s0: rk8602@42 {
+        compatible = "rockchip,rk8602";
+        reg = <0x42>;
+        vin-supply = <&vcc5v0_sys>;
+        vsel-gpios = <&gpio0 RK_PA3 GPIO_ACTIVE_HIGH>;
+        regulator-compatible = "rk860x-reg";
+        regulator-name = "vdd_cpu_big0_s0";
+        regulator-min-microvolt = <550000>;
+        regulator-max-microvolt = <1050000>;
+        regulator-ramp-delay = <2300>;
+        rockchip,suspend-voltage-selector = <1>;
+        regulator-boot-on;
+        regulator-always-on;
+        regulator-state-mem {
+            regulator-off-in-suspend;
+        };
+    };
+
+    vdd_cpu_big1_s0: vdd_cpu_big1_mem_s0: rk8603@43 {
+        compatible = "rockchip,rk8603";
+        reg = <0x43>;
+        vin-supply = <&vcc5v0_sys>;
+        vsel-gpios = <&gpio0 RK_PD6 GPIO_ACTIVE_HIGH>;
+        regulator-compatible = "rk860x-reg";
+        regulator-name = "vdd_cpu_big1_s0";
+        regulator-min-microvolt = <550000>;
+        regulator-max-microvolt = <1050000>;
+        regulator-ramp-delay = <2300>;
+        rockchip,suspend-voltage-selector = <1>;
+        regulator-boot-on;
+        regulator-always-on;
+        regulator-state-mem {
+            regulator-off-in-suspend;
+        };
+    };
+};
+
+&i2c1 {
+    status = "okay";
+        pinctrl-names = "default";
+        pinctrl-0 = <&i2c1m2_xfer>;
+
+    vdd_npu_s0: vdd_npu_mem_s0: rk8602@42 {
+        compatible = "rockchip,rk8602";
+        reg = <0x42>;
+        vin-supply = <&vcc5v0_sys>;
+        vsel-gpios = <&gpio0 RK_PC1 GPIO_ACTIVE_HIGH>;
+        regulator-compatible = "rk860x-reg";
+        regulator-name = "vdd_npu_s0";
+        regulator-min-microvolt = <550000>;
+        regulator-max-microvolt = <950000>;
+        regulator-ramp-delay = <2300>;
+        rockchip,suspend-voltage-selector = <1>;
+        regulator-boot-on;
+        regulator-always-on;
+        regulator-state-mem {
+            regulator-off-in-suspend;
+        };
+    };
+};
+
+
+&fiq_debugger {
+    compatible = "rockchip,fiq-debugger";
+    rockchip,serial-id = <2>;
+    rockchip,wake-irq = <0>;
+    /* If enable uart uses irq instead of fiq */
+    rockchip,irq-mode-enable = <1>;
+    rockchip,baudrate = <115200>;  /* Only 115200 and 1500000 */
+    interrupts = <GIC_SPI 423 IRQ_TYPE_LEVEL_LOW>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart2m0_xfer>;
+    status = "okay";
+};
+
+
+&sdmmc {
+	max-frequency = <200000000>;
+	no-sdio;
+	no-mmc;
+	bus-width = <4>;
+	cap-mmc-highspeed;
+	cap-sd-highspeed;
+	disable-wp;
+	sd-uhs-sdr104;
+	vmmc-supply = <&vcc_3v3_s0>;
+	vqmmc-supply = <&vccio_sd_s0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdmmc_bus4 &sdmmc_clk &sdmmc_cmd &sdmmc_det>;
+	status = "okay";
+};
+
+&vdd_log_s0 {
+       regulator-always-on;
+       regulator-boot-on;
+       regulator-min-microvolt = <750000>;
+       regulator-max-microvolt = <750000>;
+       regulator-ramp-delay = <12500>;
+       regulator-name = "vdd_log_s0";
+       regulator-state-mem {
+               regulator-off-in-suspend;
+               regulator-suspend-microvolt = <750000>;
+       };
+};
+
+&dmc {
+    status = "disabled";
+};
+               
+&dfi {
+    status = "disabled";
+};
+                       
+&vdd_ddr_s0 {
+       regulator-always-on;
+       regulator-boot-on;
+       regulator-min-microvolt = <900000>;
+       regulator-max-microvolt = <900000>;
+       regulator-ramp-delay = <12500>;
+       regulator-name = "vdd_ddr_s0";
+       regulator-state-mem {
+               regulator-off-in-suspend;
+               regulator-suspend-microvolt = <900000>;
+       };
+};
+
+
+/delete-node/ &backlight;

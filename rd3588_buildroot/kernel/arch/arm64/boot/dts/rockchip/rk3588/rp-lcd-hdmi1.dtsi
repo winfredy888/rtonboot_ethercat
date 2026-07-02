@@ -1,0 +1,29 @@
+&hdmi1 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&hdmim2_tx1_cec &hdmim0_tx1_hpd &hdmim2_tx1_scl &hdmim2_tx1_sda>;
+};
+
+&hdmi1_in_vp1 {
+    status = "okay";
+};
+
+&hdmi1_sound {
+    status = "okay";
+};
+
+&i2s6_8ch {
+        status = "okay";
+};
+
+
+&hdptxphy_hdmi1 {
+    status = "okay";
+};
+
+
+&route_hdmi1 {
+        status = "okay";
+        connect = <&vp1_out_hdmi1>;
+};
+

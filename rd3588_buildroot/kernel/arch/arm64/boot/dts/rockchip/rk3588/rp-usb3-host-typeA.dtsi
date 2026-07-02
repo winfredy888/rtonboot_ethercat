@@ -1,0 +1,38 @@
+/* 3.0 host 1*/
+&u2phy1_otg {
+    status = "okay";
+};
+
+&u2phy1 {
+    status = "okay";
+};
+
+&usb_host1_ehci {
+    status = "okay";
+};
+
+&usb_host1_ohci {
+    status = "okay";
+};
+
+&usbdp_phy1 {
+    status = "okay";
+};
+
+&usbdp_phy1_dp {
+    status = "okay";
+};
+
+&usbdp_phy1_u3 {
+    status = "okay";
+};
+
+&usbdrd3_1 {
+    status = "okay";
+};
+
+&usbdrd_dwc3_1 {
+    // dr_mode = "host";
+    // extcon=<&u2phy1>;
+    status = "okay";
+};

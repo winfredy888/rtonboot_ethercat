@@ -1,0 +1,29 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config ETHERCAT_ETHERCAT
+	tristate "IGH ETHERCAT Command"
+	default n
+	---help---
+		IGH ETHERCAT Command
+
+if ETHERCAT_ETHERCAT
+
+config ETHERCAT_ETHERCAT_PROGNAME
+	string "Program name"
+	default "ethercat"
+	---help---
+		This is the name of the program that will be used when the NSH ELF
+		program is installed.
+
+config ETHERCAT_ETHERCAT_PRIORITY
+	int "IGH ETHERCAT Command task priority"
+	default 100
+
+config ETHERCAT_ETHERCAT_STACKSIZE
+	int "IGH ETHERCAT Command stack size"
+	default DEFAULT_TASK_STACKSIZE
+
+endif

@@ -1,0 +1,45 @@
+/{
+        vdd_5G: vdd-5G{
+                compatible = "regulator-fixed";
+                regulator-name = "vdd_5G";
+                enable-active-high;
+                regulator-boot-on;
+                regulator-always-on;
+                gpios = <&gpio4 RK_PA4 GPIO_ACTIVE_HIGH>;
+        };
+};
+
+&combphy2_psu { 
+        status = "okay"; 
+};
+
+&pcie2x1l1 { 
+        phys = <&combphy2_psu PHY_TYPE_PCIE>; 
+        reset-gpios = <&gpio2 RK_PC5 GPIO_ACTIVE_HIGH>;
+        //modem-pwr-gpios = <&gpio4 RK_PA4 GPIO_ACTIVE_HIGH>;
+        modem-en-gpios = <&gpio2 RK_PB6 GPIO_ACTIVE_HIGH>;
+        pcie-waken-gpios = <&gpio3 RK_PC5 GPIO_ACTIVE_HIGH>;
+        
+        pinctrl-names = "default";
+        pinctrl-0 = <&modem_wakup>,<&modem_rst>,<&modem_pwr>,<&modem_en>;
+        vpcie3v3-supply = <&vcc3v3_pcie30>; 
+        status = "okay"; 
+};
+
+
+&pinctrl {
+    modem {
+        modem_pwr: modem-pwr {
+            rockchip,pins = <4 RK_PA4 RK_FUNC_GPIO &pcfg_pull_up>;
+        };
+        modem_en: modem-en {
+            rockchip,pins = <2 RK_PB6 RK_FUNC_GPIO &pcfg_pull_up>;
+        };
+        modem_rst: modem-rst {
+            rockchip,pins = <2 RK_PC5 RK_FUNC_GPIO &pcfg_pull_up>;
+        };
+        modem_wakup: modem-wakup {
+            rockchip,pins = <3 RK_PC5 RK_FUNC_GPIO &pcfg_pull_up>;
+        };
+    };
+};

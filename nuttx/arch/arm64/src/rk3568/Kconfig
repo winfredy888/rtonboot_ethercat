@@ -1,0 +1,20 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+if ARCH_CHIP_RK3568
+
+menu "Rockchip RK3568 Peripheral Selection"
+
+config RK3568_UART
+	bool "UART 0"
+	default n
+	select UART0_SERIALDRIVER
+	select ARCH_HAVE_SERIAL_TERMIOS
+	---help---
+		Select to enable support for UART0.
+
+endmenu # Rockchip RK3568 Peripheral Selection
+
+endif # ARCH_CHIP_RK3568

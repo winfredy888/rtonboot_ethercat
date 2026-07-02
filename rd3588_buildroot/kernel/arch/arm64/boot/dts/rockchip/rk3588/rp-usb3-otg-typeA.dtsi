@@ -1,0 +1,56 @@
+/{
+    vbus5v0_otg: vbus5v0-otg {
+        compatible = "regulator-fixed";
+        regulator-name = "vbus5v0_otg";
+        regulator-min-microvolt = <5000000>;
+        regulator-max-microvolt = <5000000>;
+        enable-active-high;
+        vin-supply = <&vcc5v0_usb>;
+        //reconfig by man dts file
+        //gpios = <&gpio4 RK_PA1 GPIO_ACTIVE_HIGH>;
+    };
+};
+
+
+&u2phy0 {
+    status = "okay";
+};
+
+&u2phy0_otg {
+    status = "okay";
+    vbus-supply = <&vbus5v0_otg>; //for auto enable/disable otg_5V
+};
+
+&u2phy1 {
+    status = "okay";
+};
+
+&usb_host0_ehci {
+    status = "okay";
+};
+
+&usb_host0_ohci {
+    status = "okay";
+};
+
+&usbdp_phy0 {
+    status = "okay";
+};
+
+&usbdp_phy0_dp {
+    status = "okay";
+};
+
+&usbdp_phy0_u3 {
+    status = "okay";
+};
+
+&usbdrd3_0 {
+    status = "okay";
+};
+
+&usbdrd_dwc3_0 {
+    dr_mode = "otg";
+    extcon=<&u2phy0>;
+    status = "okay";
+};

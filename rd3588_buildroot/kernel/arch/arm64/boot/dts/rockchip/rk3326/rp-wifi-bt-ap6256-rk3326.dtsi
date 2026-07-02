@@ -1,0 +1,84 @@
+
+/{
+	sdio_pwrseq: sdio-pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		clocks = <&hym8563>;
+                clock-names = "ext_clock";
+		pinctrl-names = "default";
+		pinctrl-0 = <&wifi_enable_h>;
+
+		/*
+		 * On the module itself this is one of these (depending
+		 * on the actual card populated):
+		 * - SDIO_RESET_L_WL_REG_ON
+		 * - PDN (power down when low)
+		 */
+		post-power-on-delay-ms = <100>;
+		reset-gpios = <&gpio0 RK_PA2 GPIO_ACTIVE_LOW>;
+	};
+	
+	wireless-wlan {
+		compatible = "wlan-platdata";
+		wifi_chip_type = "AP6256";
+		WIFI,host_wake_irq = <&gpio0 RK_PA5 GPIO_ACTIVE_HIGH>;
+	//	WIFI,poweren_gpio = <&gpio0 RK_PA2 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+
+	wireless-bluetooth {
+		compatible = "bluetooth-platdata";
+		clocks = <&hym8563>;
+		clock-names = "ext_clock";
+		uart_rts_gpios = <&gpio1 RK_PC3 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default","rts_gpio";
+		pinctrl-0 = <&uart1_rts>;
+	//	pinctrl-1 = <&uart1_rts_gpio>;
+		pinctrl-1 = <&uart1_gpios>;
+		BT,reset_gpio = <&gpio0 RK_PA0 GPIO_ACTIVE_HIGH>;
+		BT,wake_gpio = <&nca9555_gpio IO_00 GPIO_ACTIVE_HIGH>;
+		BT,wake_host_irq = <&gpio0 RK_PA7 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+	
+};
+
+
+&sdio {
+	supports-sdio;
+	bus-width = <4>;
+	cap-sd-highspeed;
+	no-sd;
+	no-mmc;
+	ignore-pm-notify;
+	keep-power-in-suspend;
+	non-removable;
+	mmc-pwrseq = <&sdio_pwrseq>;
+	sd-uhs-sdr104;
+	status = "okay";
+};
+
+&uart1 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&uart1_xfer &uart1_cts>;
+        status = "okay";
+};
+
+&pinctrl {
+	sdio-pwrseq {
+                wifi_enable_h: wifi-enable-h {
+                        rockchip,pins = <0 RK_PA2 RK_FUNC_GPIO &pcfg_pull_none>;
+                };
+        };
+
+        wireless-wlan {
+                wifi_host_wake_irq: wifi-host-wake-irq {
+                        rockchip,pins = <0 RK_PA5 RK_FUNC_GPIO &pcfg_pull_down>;
+                };
+        };
+
+	wireless-bluetooth {
+                uart1_gpios: uart1-gpios {
+                        rockchip,pins = <1 RK_PC3 RK_FUNC_GPIO &pcfg_pull_none>;
+                };
+        };
+};

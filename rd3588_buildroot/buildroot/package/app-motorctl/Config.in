@@ -1,0 +1,5 @@
+config BR2_PACKAGE_APP_MOTORCTL
+	bool "motorctl"
+	help
+	  Winfred Young motorctl command
+	  

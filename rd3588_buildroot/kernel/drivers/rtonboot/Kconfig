@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: GPL-2.0
+menu "RTBridge"
+
+config RTBRIDGE_DRIVER
+	bool "RTOnBoot RTBridge Driver"
+	depends on RTONBOOT_SUPPORT
+	default n
+	help
+	  RTOnBoot RTBridge Driver.
+	  
+config RTBULK_DRIVER
+	bool "RTOnBoot RTBULK Driver"
+	depends on RTONBOOT_SUPPORT
+	default n
+	help
+	  RTOnBoot RTBULK Driver.
+	  
+config RTONBOOT_VNETCARD_DRIVER
+	bool "RTOnBoot Virtual NetCard Driver"
+	depends on RTONBOOT_SUPPORT
+	default n
+	help
+	  RTOnBoot Virtual NetCard Driver.	
+
+endmenu

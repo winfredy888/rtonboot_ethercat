@@ -1,0 +1,24 @@
+&hdmi0 {
+        status = "okay";
+};
+
+&hdmi0_in_vp0 {
+        status = "okay";
+};
+
+&hdmi0_sound {
+        status = "okay";
+};
+
+&i2s5_8ch {
+        status = "okay";
+};
+
+&hdptxphy_hdmi0 {
+        status = "okay";
+};
+
+&route_hdmi0 {
+    status = "okay";
+    connect = <&vp0_out_hdmi0>;
+};

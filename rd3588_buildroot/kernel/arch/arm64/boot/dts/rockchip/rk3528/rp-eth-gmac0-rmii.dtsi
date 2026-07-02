@@ -1,0 +1,4 @@
+&gmac0 {
+	status = "okay";
+};
+

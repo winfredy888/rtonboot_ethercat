@@ -1,0 +1,261 @@
+/**
+ * mipi csi to xs9922b config
+ */
+#define RP_DOUBLE_XS9922B 
+#define RP_CAMERA_XS9922B
+
+&i2c3 {
+        status = "okay";
+        pinctrl-names = "default";
+        pinctrl-0 = <&i2c3m1_xfer>;
+
+
+        xs9922_0: xs9922_0@31 {
+                compatible = "xs9922";
+                status = "okay";
+                reg = <0x31>;
+                clocks = <&cru CLK_MIPI_CAMARAOUT_M1>;
+                clock-names = "xvclk";
+                power-domains = <&power RK3588_PD_VI>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&xs9922_pwr_0>;
+                reset-gpios = <&gpio4 RK_PB1 GPIO_ACTIVE_HIGH>;
+                power-gpios = <&gpio4 RK_PB0 GPIO_ACTIVE_HIGH>;
+		//avdd-supply = <&vcc_avdd>;
+                //dovdd-supply = <&vcc_dovdd>;
+                //dvdd-supply = <&vcc_dvdd>;
+                rockchip,camera-module-index = <0>;
+                rockchip,camera-module-facing = "back";
+                rockchip,camera-module-name = "default";
+                rockchip,camera-module-lens-name = "default";
+                rockchip,default_rect= <1920 1080>; 
+                port {
+                        xs9922_out0: endpoint {
+                                remote-endpoint = <&mipi_in_ucam0>;
+                                data-lanes = <1 2 3 4>;
+                        };
+                };
+        };
+};
+
+&pinctrl {
+        xs9922_0 {
+                xs9922_pwr_0: camera-pwr-0 {
+                        rockchip,pins =
+                            <4 RK_PB1 RK_FUNC_GPIO &pcfg_pull_up>,
+                            <4 RK_PB0 RK_FUNC_GPIO &pcfg_pull_up>;
+                };
+        };
+};
+
+
+
+
+&mipi_dcphy0 {
+	status = "okay";
+};
+
+
+
+
+
+
+
+
+
+
+// CIF
+
+
+&csi2_dcphy0 {
+        status = "okay";
+
+        ports {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                port@0 {
+                        reg = <0>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+                        mipi_in_ucam0: endpoint@1 {
+                                reg = <1>;
+                                remote-endpoint = <&xs9922_out0>;
+                                data-lanes = <1 2 3 4>;
+                        };
+                };
+                port@1 {
+                        reg = <1>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+                        csidcphy0_out: endpoint@0 {
+                                reg = <0>;
+                                remote-endpoint = <&mipi0_csi2_input>;
+                        };
+                };
+        };
+};
+
+
+&mipi0_csi2 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi0_csi2_input: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&csidcphy0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			
+			mipi0_csi2_output: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&cif_mipi_in0>;
+			};
+
+		};
+	};
+};
+
+
+&rkcif_mipi_lvds {
+	status = "okay";
+
+	port {
+		cif_mipi_in0: endpoint {
+			remote-endpoint = <&mipi0_csi2_output>;
+		};
+	};
+};
+
+
+&rkcif {
+	status = "okay";
+};
+
+&rkcif_mmu {
+	status = "okay";
+};
+
+
+
+#if 0
+
+// isp
+&mipi0_csi2 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi0_csi2_input: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&csidcphy0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi2_csi2_output: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&cif_mipi_in2>;
+			};
+		};
+	};
+};
+
+
+&rkcif_mipi_lvds2 {
+	status = "okay";
+	port {
+		cif_mipi_in2: endpoint {
+			remote-endpoint = <&mipi2_csi2_output>;
+		};
+	};
+};
+
+
+#endif
+
+
+
+
+#if 0
+
+&rkcif_mipi_lvds2_sditf {
+	status = "okay";
+	port {
+		mipi1_lvds_sditf: endpoint {
+			remote-endpoint = <&isp0_vir0>;
+		};
+	};
+};
+
+
+&rkcif_mipi_lvds_sditf {
+	status = "okay";
+
+	port {
+		mipi_lvds_sditf: endpoint {
+			remote-endpoint = <&isp1_in1>;
+		};
+	};
+};
+
+
+&rkisp_unite {
+	status = "okay";
+};
+
+&rkisp_unite_mmu {
+	status = "okay";
+};
+
+&rkisp0_vir0 {
+	status = "okay";
+	/*
+	 * dual isp process image case
+	 * other rkisp hw and virtual nodes should disabled
+	 */
+	rockchip,hw = <&rkisp_unite>;
+	port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		isp0_vir0: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&mipi1_lvds_sditf>;
+		};
+/*
+		isp1_in1: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&mipi_lvds_sditf>;
+		};
+  */  
+	};
+};
+
+
+#endif

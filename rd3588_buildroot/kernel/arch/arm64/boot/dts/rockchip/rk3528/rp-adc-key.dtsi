@@ -1,0 +1,35 @@
+
+/ {
+        adc_keys: adc-keys { 
+                status = "okay";
+                compatible = "adc-keys";
+                io-channels = <&saradc 1>;
+                io-channel-names = "buttons";
+                keyup-threshold-microvolt = <1800000>;
+                poll-interval = <100>;
+
+                vol-up-key {
+                        label = "volume up";
+                        linux,code = <KEY_VOLUMEUP>;
+                        press-threshold-microvolt = <1750>;
+                };
+
+                vol-down-key {
+                        linux,code = <KEY_VOLUMEDOWN>;
+                        label = "volume down";
+                        press-threshold-microvolt = <414000>;
+                };
+
+                menu-key {
+                        linux,code = <KEY_MENU>;
+                        label = "menu";
+                        press-threshold-microvolt = <800000>;
+                };
+
+                back-key {
+                        linux,code = <KEY_BACK>;
+                        label = "back";
+                        press-threshold-microvolt = <1200000>;
+                };
+        };
+};

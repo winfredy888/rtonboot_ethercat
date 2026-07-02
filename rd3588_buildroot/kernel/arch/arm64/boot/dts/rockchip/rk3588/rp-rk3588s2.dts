@@ -1,0 +1,337 @@
+/* board base */
+//#include "../rk3588s-evb4-lp4x-v10-linux.dts"
+#include <dt-bindings/gpio/nca9555-gpio.h>
+#include "rp-rk3588s2-board.dtsi"
+
+#include "rp-tp-i2c4-gt911.dtsi"
+#include "rp-rk3588s2-lcd-gpio.dtsi"
+
+#include "rpdzkj_config.dtsi"
+
+/* usb */
+#include "rp-usb-typea-rk3588.dtsi"
+#include "rp-usb-host.dtsi"
+
+/* ethernet */
+#include "rp-eth-pcie2gmac-rk3588s2.dtsi"
+
+/* pcie */
+#include "rp-pcie-power-rk3588s.dtsi"
+
+/* audio */
+#include "rp-audio-es8388.dtsi"
+
+/* wifi/bt */
+#include "rp-wifi-bt-vs2275s-rk3588s2.dtsi"
+
+/* camera */
+#include "rp-mipi-camera-dphy0-rk3588s2.dtsi"
+#include "rp-mipi-camera-dcphy1-rk3588s2.dtsi"
+#include "rp-mipi-camera-dphy1-rk3588s2.dtsi"
+
+#include "rp-lcd-hdmi0.dtsi"        
+
+/* mipi lcd */
+//#include "rp-lcd-mipi0-5-720-1280-v2.dtsi"
+//#include "rp-lcd-mipi0-5-720-1280-v2-boxTP.dtsi"
+//#include "rp-lcd-mipi0-7-720-1280.dtsi"
+#include "rp-lcd-mipi0-7-1024-600.dtsi"
+//#include "rp-lcd-mipi0-8-800-1280-v3.dtsi"
+//#include "rp-lcd-mipi0-8-1200-1920.dtsi"
+//#include "rp-lcd-mipi0-10-800-1280-v3.dtsi"
+//#include "rp-lcd-mipi0-10-1200-1920.dtsi"
+//#include "rp-lcd-mipi0-10-1920-1200-jc.dtsi"
+
+/* mipi_to_lvds lcd */
+//#include "rp-lcd-mipi1-gm8775-lvds-21-1920-1080.dtsi"
+//#include "rp-lcd-mipi1-gm8775-lvds-10.1-1024-600.dtsi"
+/ {
+    model = "rp-rk3588s2";
+
+    vcc_1v1_nldo_s3: vcc-1v1-nldo-s3 {
+        compatible = "regulator-fixed";
+        regulator-name = "vcc_1v1_nldo_s3";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <1100000>;
+        regulator-max-microvolt = <1100000>;
+        vin-supply = <&vcc5v0_sys>;
+    };
+	pwr_3v3_5v: pwr-3v3-5v {
+        compatible = "regulator-fixed";
+        regulator-name = "pwr_3v3_5v";
+        regulator-boot-on;
+        regulator-always-on;
+        enable-active-high;
+        gpio = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
+        vin-supply = <&vcc_3v3_s0>;
+    };
+
+	fan_gpio_control {
+            compatible = "fan_gpio_control";
+            gpio-pin = <&gpio0 RK_PC4 GPIO_ACTIVE_HIGH>;
+            thermal-zone = "soc-thermal";
+            threshold-temp = <60000>; //60C
+            running-time = <10000>; //10s
+            status = "okay";
+        };
+
+        rp_power{
+                status = "okay";
+                compatible = "rp_power";
+                rp_not_deep_sleep = <1>;
+
+//#define GPIO_FUNCTION_OUTPUT 0
+//#define GPIO_FUNCTION_INPUT 1
+//#define GPIO_FUNCTION_IRQ 2
+//#define GPIO_FUNCTION_FLASH 3
+//#define GPIO_FUNCTION_OUTPUT_CTRL 4
+
+
+                led {  
+                        gpio_num = <&gpio3 RK_PC2 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <3>;
+                };
+				usb-host-power {
+                        gpio_num = <&gpio4 RK_PB5 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <4>;
+                };
+
+                usb-hub-reset {
+                        gpio_num = <&gpio1 RK_PD5 GPIO_ACTIVE_LOW>;
+                        gpio_function = <4>;
+                };
+
+				otg_vdd5v {
+                        gpio_num = <&gpio3 RK_PC3 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <4>;
+                };
+
+                sd-pwren {
+                        gpio_num = <&gpio4 RK_PB4 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <4>;
+                };
+
+                4g-pwrkey {
+                        gpio_num = <&gpio0 RK_PC2 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <4>;
+                };
+                4g-vdd3v6 {
+                        gpio_num = <&gpio0 RK_PC1 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <4>;
+                };
+    };
+
+        rp_gpio{
+                status = "okay";
+                compatible = "rp_gpio";
+		
+		gpio0d3 {
+                        gpio_num = <&gpio0 RK_PD3 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+				
+		gpio0d6 {
+                        gpio_num = <&gpio0 RK_PD6 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+                gpio1c1 {
+                        gpio_num = <&gpio1 RK_PC1 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                gpio0b0 {
+                        gpio_num = <&gpio0 RK_PB0 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                gpio0b2 {
+                        gpio_num = <&gpio0 RK_PB2 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                gpio1c6 {
+                        gpio_num = <&gpio1 RK_PC6 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                gpio1c4 {
+                        gpio_num = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                gpio3b1 {
+                        gpio_num = <&gpio3 RK_PB1 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                gpio3b4 {
+                        gpio_num = <&gpio3 RK_PB4 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+				
+				gpio3c1 {
+                        gpio_num = <&gpio3 RK_PC1 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                nca9555_0 {
+                        gpio_num = <&nca9555_gpio IO_00 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                nca9555_1 {
+                        gpio_num = <&nca9555_gpio IO_01 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                nca9555_2 {
+                        gpio_num = <&nca9555_gpio IO_02 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+                nca9555_3 {
+                        gpio_num = <&nca9555_gpio IO_03 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                nca9555_4 {
+                        gpio_num = <&nca9555_gpio IO_04 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                nca9555_5 {
+                        gpio_num = <&nca9555_gpio IO_05 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+	
+				nca9555_6 {
+                        gpio_num = <&nca9555_gpio IO_06 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                nca9555_7 {
+                        gpio_num = <&nca9555_gpio IO_07 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                nca9555_10 {
+                        gpio_num = <&nca9555_gpio IO_10 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+                nca9555_11 {
+                        gpio_num = <&nca9555_gpio IO_11 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                nca9555_12 {
+                        gpio_num = <&nca9555_gpio IO_12 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                nca9555_13 {
+                        gpio_num = <&nca9555_gpio IO_13 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                nca9555_14 {
+                        gpio_num = <&nca9555_gpio IO_14 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+				nca9555_15 {
+                        gpio_num = <&nca9555_gpio IO_15 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                nca9555_16 {
+                        gpio_num = <&nca9555_gpio IO_16 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+                nca9555_17 {
+                        gpio_num = <&nca9555_gpio IO_17 GPIO_ACTIVE_HIGH>;
+                        gpio_function = <0>;
+                };
+
+		};
+};
+
+
+&fiq_debugger {
+    rockchip,baudrate = <115200>;
+};
+
+
+&can2 {
+    assigned-clocks = <&cru CLK_CAN0>;
+    assigned-clock-rates = <200000000>;
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&can2m1_pins>;
+};
+
+&can1 {
+    assigned-clocks = <&cru CLK_CAN1>;
+    assigned-clock-rates = <200000000>;
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&can1m1_pins>;
+};
+
+/*RS485*/
+&uart7 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart7m2_xfer>;
+    current-speed = <115200>;
+};
+
+&sdmmc {
+    status = "okay";
+  /delete-property/ vmmc-supply;
+};
+
+&i2c6 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c6m3_xfer>;
+
+    hym8563: hym8563@51 {
+        compatible = "haoyu,hym8563";
+        reg = <0x51>;
+        #clock-cells = <0>;
+        clock-frequency = <32768>;
+        clock-output-names = "hym8563";
+    };
+	nca9555: mfd-gpio@20 {
+                compatible = "nca9555";
+                reg = <0x20>;
+                status = "okay";
+
+                nca9555_gpio: gpio-normal@20 {
+                        compatible = "nca9555-gpio";
+                        gpio-controller;
+                        #gpio-cells = <2>;
+                };
+        };
+
+};
+
+&pmic_pins {
+    rockchip,pins =
+    /* pmic_int_l */
+    <0 RK_PA7 0 &pcfg_pull_up>,
+    /* pmic_sleep1 */
+    <0 RK_PA2 1 &pcfg_pull_none>,
+    /* pmic_sleep2 */
+    <0 RK_PA3 1 &pcfg_pull_none>,
+    /* pmic_sleep3 */
+    //<0 RK_PC1 1 &pcfg_pull_none>,
+    /* pmic_sleep4 */
+    //<0 RK_PC2 1 &pcfg_pull_none>,
+    /* pmic_sleep5 */
+    <0 RK_PC3 1 &pcfg_pull_none>;
+    /* pmic_sleep6 */
+    //<0 RK_PD6 1 &pcfg_pull_none>;
+
+};

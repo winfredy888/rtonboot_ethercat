@@ -1,0 +1,271 @@
+/*****************************************************************************
+ *
+ *  Copyright (C) 2006-2014  Florian Pose, Ingenieurgemeinschaft IgH
+ *
+ *  This file is part of the IgH EtherCAT Master.
+ *
+ *  The IgH EtherCAT Master is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License version 2, as
+ *  published by the Free Software Foundation.
+ *
+ *  The IgH EtherCAT Master is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+ *  Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License along
+ *  with the IgH EtherCAT Master; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ ****************************************************************************/
+
+#include <iostream>
+#include <iomanip>
+#include <string.h>
+
+using namespace std;
+
+#include "myostream.h"
+
+#include "CommandXml.h"
+#include "MasterDevice.h"
+
+/****************************************************************************/
+
+CommandXml::CommandXml():
+    Command("xml", "Generate slave information XML.")
+{
+}
+
+/****************************************************************************/
+
+string CommandXml::helpString(const string &binaryBaseName) const
+{
+    stringstream str;
+
+    str << binaryBaseName << " " << getName() << " [OPTIONS]" << endl
+        << endl
+        << getBriefDescription() << endl
+        << endl
+        << "Note that the PDO information can either originate" << endl
+        << "from the SII or from the CoE communication area. For" << endl
+        << "slaves, that support configuring PDO assignment and" << endl
+        << "mapping, the output depends on the last configuration." << endl
+        << endl
+        << "Command-specific options:" << endl
+        << "  --alias    -a <alias>" << endl
+        << "  --position -p <pos>    Slave selection. See the help of" << endl
+        << "                         the 'slaves' command." << endl
+        << endl
+        << numericInfo();
+
+    return str.str();
+}
+
+/****************************************************************************/
+
+int CommandXml::execute(const StringVector &args)
+{
+    SlaveList slaves;
+    SlaveList::const_iterator si;
+    int retval;
+    
+    if (args.size()) {
+        stringstream err;
+        
+        g_err.str("");
+        
+        g_err << "'" << getName() << "' takes no arguments!";
+        
+        /*throwInvalidUsageException(err);*/
+        
+        return -1;
+    }
+    
+    int32_t idx;
+    
+    idx = (int32_t)(getSingleMasterIndex());
+    if(idx < 0)
+    {
+		g_err.str("");
+        
+        g_err << "getSingleMasterIndex parse error do nothing";
+        
+        return -3;
+	}
+
+    MasterDevice m(idx);
+    
+    retval = m.open(MasterDevice::Read);
+    if(retval)
+		return retval;
+		
+    slaves = selectedSlaves(m);
+
+    mycsout << "<?xml version=\"1.0\" ?>" << '\n';
+    if (slaves.size() > 1) {
+        mycsout << "<EtherCATInfoList>" << '\n';
+    }
+
+    for (si = slaves.begin(); si != slaves.end(); si++) {
+        retval = generateSlaveXml(m, *si, slaves.size() > 1 ? 1 : 0);
+        if(retval)
+			return retval;
+    }
+
+    if (slaves.size() > 1) {
+        mycsout << "</EtherCATInfoList>" << '\n';
+    }
+    
+    return 0;
+}
+
+/****************************************************************************/
+
+int CommandXml::generateSlaveXml(
+        MasterDevice &m,
+        const ec_ioctl_slave_t &slave,
+        unsigned int indent
+        )
+{
+    ec_ioctl_slave_sync_t sync;
+    ec_ioctl_slave_sync_pdo_t pdo;
+    string pdoType, in;
+    ec_ioctl_slave_sync_pdo_entry_t entry;
+    unsigned int i, j, k;
+    int retval;
+    
+    stringstream str1;
+
+    for (i = 0; i < indent; i++) {
+        in += "  ";
+    }
+
+   
+    str1
+        << in << "<EtherCATInfo>" << endl
+        << in << "  <!-- Slave " << dec << slave.position << " -->" << endl
+        << in << "  <Vendor>" << endl
+        << in << "    <Id>" << slave.vendor_id << "</Id>" << endl
+        << in << "  </Vendor>" << endl
+        << in << "  <Descriptions>" << endl
+        << in << "    <Devices>" << endl
+        << in << "      <Device>" << endl
+        << in << "        <Type ProductCode=\"#x"
+        << hex << setfill('0') << setw(8) << slave.product_code
+        << "\" RevisionNo=\"#x"
+        << hex << setfill('0') << setw(8) << slave.revision_number
+        /*<< "\">" << slave.order << "</Type>"*/ << endl;    
+
+    if (strlen(slave.name)) {
+        str1
+            << in << "        <Name><![CDATA["
+            << slave.name
+            << "]]></Name>" << endl;
+    }
+    
+    #if 0 /* Winfred */
+
+    for (i = 0; i < slave.sync_count; i++) {
+        retval = m.getSync(&sync, slave.position, i);
+        if(retval)
+			return retval;
+			
+
+        str1
+            << in << "        <Sm Enable=\""
+            << dec << (unsigned int) sync.enable
+            << "\" StartAddress=\"#x" << hex << sync.physical_start_address
+            << "\" ControlByte=\"#x"
+            << hex << (unsigned int) sync.control_register
+            << "\" DefaultSize=\"" << dec << sync.default_size
+            << "\" />" << endl;
+    }
+
+    for (i = 0; i < slave.sync_count; i++) {
+        retval = m.getSync(&sync, slave.position, i);
+        if(retval)
+			return retval;
+
+        for (j = 0; j < sync.pdo_count; j++) {
+            retval = m.getPdo(&pdo, slave.position, i, j);
+            if(retval)
+				return retval;
+				
+            pdoType = (sync.control_register & 0x04 ? "R" : "T");
+            pdoType += "xPdo"; // last 2 letters lowercase in XML!
+
+            str1
+                << in << "        <" << pdoType
+                << " Sm=\"" << i << "\" Fixed=\"1\" Mandatory=\"1\">" << endl
+                << in << "          <Index>#x"
+                << hex << setfill('0') << setw(4) << pdo.index
+                << "</Index>" << endl
+                << in << "          <Name>" << pdo.name << "</Name>" << endl;
+
+            for (k = 0; k < pdo.entry_count; k++) {
+                retval = m.getPdoEntry(&entry, slave.position, i, j, k);
+                if(retval)
+					return retval;
+
+                str1
+                    << in << "          <Entry>" << endl
+                    << in << "            <Index>#x"
+                    << hex << setfill('0') << setw(4) << entry.index
+                    << "</Index>" << endl;
+                if (entry.index)
+                    str1
+                        << in << "            <SubIndex>"
+                        << dec << (unsigned int) entry.subindex
+                        << "</SubIndex>" << endl;
+
+                str1
+                    << in << "            <BitLen>"
+                    << dec << (unsigned int) entry.bit_length
+                    << "</BitLen>" << endl;
+
+                if (entry.index) {
+                    str1
+                        << in << "            <Name>" << entry.name
+                        << "</Name>" << endl
+                        << in << "            <DataType>";
+
+                    if (entry.bit_length == 1) {
+                        str1 << "BOOL";
+                    } else if (!(entry.bit_length % 8)) {
+                        if (entry.bit_length <= 64) {
+                            str1 << "UINT" << (unsigned int) entry.bit_length;
+                        } else {
+                            str1 << "STRING("
+                                << (unsigned int) (entry.bit_length / 8)
+                                << ")";
+                        }
+                    } else {
+                        str1 << "BIT" << (unsigned int) entry.bit_length;
+                    }
+
+                    str1 << "</DataType>" << endl;
+                }
+
+                str1 << in << "          </Entry>" << endl;
+            }
+
+            str1
+                << in << "        </" << pdoType << ">" << endl;
+        }
+    }
+    
+    #endif
+
+    str1
+        << in << "      </Device>" << endl
+        << in << "    </Devices>" << endl
+        << in << "  </Descriptions>" << endl
+        << in << "</EtherCATInfo>" << endl;
+        
+   mycsout << str1.str();     
+   
+   return 0;
+}
+
+/****************************************************************************/

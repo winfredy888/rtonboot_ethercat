@@ -1,0 +1,152 @@
+
+
+&i2c2 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c2m4_xfer>;
+
+vm149c_1: vm149c_1@0c {
+        compatible = "silicon touch,vm149c";
+        status = "okay";
+        reg = <0x0c>;
+        rockchip,vcm-start-current = <20>; // 马达的启动电流
+        rockchip,vcm-rated-current = <100>; // 马达的额定电流
+        rockchip,vcm-step-mode = <13>; // 马达驱动 ic 的电流输出模式
+        rockchip,camera-module-index = <1>; // 模组编号
+        rockchip,camera-module-facing = "front"; // 模组朝向，有"back"和"front"
+};
+
+  
+    gc8034_1: gc8034_1@37 {
+        compatible = "galaxycore,gc8034";
+        status = "okay";
+        reg = <0x37>;
+        clocks = <&cru CLK_MIPI_CAMARAOUT_M2>;
+        clock-names = "xvclk";
+        power-domains = <&power RK3588_PD_VI>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&mipim0_camera2_clk>;
+        rockchip,grf = <&sys_grf>;
+        pwdn-gpios = <&gpio1 RK_PB0 GPIO_ACTIVE_LOW>;
+        rockchip,camera-module-index = <1>;
+        rockchip,camera-module-facing = "front";
+        rockchip,camera-module-name = "RK-CMK-8M-2-v1";
+        rockchip,camera-module-lens-name = "CK8401-4";        
+        lens-focus = <&vm149c_1>;
+         port {
+            gc8034_out1: endpoint {
+                remote-endpoint = <&mipi_in_ucam1>;
+                data-lanes = <1 2 3 4>;
+            };
+        };
+    };
+};
+
+
+&mipi_dcphy1 {
+    status = "okay";
+};
+
+&csi2_dcphy1 {
+    status = "okay";
+
+    ports {
+        #address-cells = <1>;
+        #size-cells = <0>;
+    port@0 {
+            reg = <0>;
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            mipi_in_ucam1: endpoint@1 {
+                reg = <1>;
+                remote-endpoint = <&gc8034_out1>;
+        data-lanes = <1 2 3 4>;
+            };
+        };
+
+        port@1 {
+            reg = <1>;
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            csidcphy1_out: endpoint@0 {
+                reg = <0>;
+                remote-endpoint = <&mipi1_csi2_input>;
+            };
+        };
+    };
+};
+
+&mipi1_csi2 {
+    status = "okay";
+
+    ports {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        port@0 {
+            reg = <0>;
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            mipi1_csi2_input: endpoint@0 {
+                reg = <0>;
+                remote-endpoint = <&csidcphy1_out>;
+            };
+        };
+
+        port@1 {
+            reg = <1>;
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            mipi1_csi2_output: endpoint@1 {
+                reg = <1>;
+                remote-endpoint = <&cif_mipi_in1>;
+            };
+        };
+    };
+};
+
+&rkcif_mipi_lvds1 {
+    status = "okay";
+
+    port {
+        cif_mipi_in1: endpoint {
+            remote-endpoint = <&mipi1_csi2_output>;
+        };
+    };
+};
+
+&rkcif_mipi_lvds1_sditf {
+    status = "okay";
+
+    port {
+        mipi_lvds1_sditf: endpoint {
+            remote-endpoint = <&isp0_vir0>;
+        };
+    };
+};
+
+&rkisp0 {
+    status = "okay";
+};
+
+&isp0_mmu {
+    status = "okay";
+};
+
+&rkisp0_vir0 {
+    status = "okay";
+    port {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        isp0_vir0: endpoint@0 {
+            reg = <0>;
+            remote-endpoint = <&mipi_lvds1_sditf>;
+        };
+    };
+};
+

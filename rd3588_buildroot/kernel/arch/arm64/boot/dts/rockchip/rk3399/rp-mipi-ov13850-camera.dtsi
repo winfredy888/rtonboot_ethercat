@@ -1,0 +1,175 @@
+
+&rkisp1_0 {
+    status = "okay";
+
+    port {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        isp0_mipi_in: endpoint@0 {
+            reg = <0>;
+            remote-endpoint = <&dphy_rx0_out>;
+        };
+    };
+};
+
+&mipi_dphy_rx0 {
+    status = "okay";
+
+    ports {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        port@0 {
+            reg = <0>;
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            mipi_in_ucam0: endpoint@1 {
+                reg = <1>;
+                remote-endpoint = <&ucam_out0>;
+                data-lanes = <1 2>;
+            };
+        };
+
+        port@1 {
+            reg = <1>;
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            dphy_rx0_out: endpoint@0 {
+                reg = <0>;
+                remote-endpoint = <&isp0_mipi_in>;
+            };
+        };
+    };
+};
+
+&isp0_mmu {
+    status = "okay";
+};
+
+&rkisp1_1 {
+    status = "okay";
+
+    port {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        isp1_mipi_in: endpoint@0 {
+            reg = <0>;
+            remote-endpoint = <&dphy_tx1rx1_out>;
+        };
+    };
+};
+
+&mipi_dphy_tx1rx1 {
+    status = "okay";
+
+    ports {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        port@0 {
+            reg = <0>;
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            mipi_in_ucam1: endpoint@1 {
+                reg = <1>;
+                // Unlinked camera 
+                remote-endpoint = <&ucam_out1>;
+                data-lanes = <1 2>;
+            };
+        };
+
+        port@1 {
+            reg = <1>;
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            dphy_tx1rx1_out: endpoint@0 {
+                reg = <0>;
+                remote-endpoint = <&isp1_mipi_in>;
+            };
+        };
+    };
+};
+
+&isp1_mmu {
+    status = "okay";
+};
+
+
+
+&i2c1 {
+    status = "okay";
+    ov13850b: ov13850b@10 {
+                compatible = "ovti,ov13850";
+                status = "okay";
+                reg = <0x10>;
+                clocks = <&cru SCLK_CIF_OUT>;
+                clock-names = "xvclk";
+
+                /* conflict with csi-ctl-gpios */
+                reset-gpios = <&gpio1 3 GPIO_ACTIVE_HIGH>;
+                pwdn-gpios = <&gpio2 28 GPIO_ACTIVE_HIGH>;
+                pinctrl-names = "rockchip,camera_default";
+                pinctrl-0 = <&pinctrl_ov13850b>;
+                rockchip,camera-module-index = <0>;
+                rockchip,camera-module-facing = "back";
+                rockchip,camera-module-name = "CMK-CT0116";
+                rockchip,camera-module-lens-name = "Largan-50013A1";
+
+                port {
+                        ucam_out0: endpoint {
+                                remote-endpoint = <&mipi_in_ucam0>;
+                                data-lanes = <1 2>;
+                        };
+                };
+        };
+
+    ov13850f: ov13850f@10 {
+                compatible = "ovti,ov13850";
+                status = "okay";
+                reg = <0x10>;
+                clocks = <&cru SCLK_CIF_OUT>;
+                clock-names = "xvclk";
+
+                /* conflict with csi-ctl-gpios */
+                reset-gpios = <&gpio2 27 GPIO_ACTIVE_HIGH>;
+                pwdn-gpios = <&gpio2 12 GPIO_ACTIVE_HIGH>;
+                //pinctrl-names = "rockchip,camera_default";
+                //pinctrl-0 = <&pinctrl_ov13850f>;
+                rockchip,camera-module-index = <1>;
+                rockchip,camera-module-facing = "front";
+                rockchip,camera-module-name = "CMK-CT0116";
+                rockchip,camera-module-lens-name = "Largan-50013A1";
+
+                port {
+                        ucam_out1: endpoint {
+                                remote-endpoint = <&mipi_in_ucam1>;
+                                data-lanes = <1 2>;
+                        };
+                };
+        };
+};
+
+&pinctrl {
+    camera {
+        pinctrl_ov13850b: pinctrl-ov13850b {
+            rockchip,pins =
+                /* cif_clkout */
+                                <2 RK_PB3 3 &pcfg_pull_none>,
+                <1 RK_PA3 0 &pcfg_pull_none>,
+                <2 RK_PD4 0 &pcfg_pull_none>;
+        };    
+        pinctrl_ov13850f: pinctrl-ov13850f {
+                        rockchip,pins =
+                                /* cif_clkout */
+                                <2 RK_PB3 3 &pcfg_pull_none>,
+                <2 RK_PD3 0 &pcfg_pull_none>,
+                                <2 RK_PB4 0 &pcfg_pull_none>;
+               };
+    };
+};

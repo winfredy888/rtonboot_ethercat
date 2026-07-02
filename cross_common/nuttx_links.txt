@@ -1,0 +1,11 @@
+./arch/arm64/include/board -> boards/arm64/rk3588/rd3588/include
+./arch/arm64/include/chip -> arch/arm64/include/rk3588
+./arch/arm64/include/include -> arch/arm64/include
+./arch/arm64/include/rk3588/rk3588 -> arch/arm64/include/rk3588
+./arch/arm64/src/board -> boards/arm64/rk3588/rd3588/src
+./arch/arm64/src/chip -> arch/arm64/src/rk3588
+./boards/arm64/rk3588/rd3588/include/include -> boards/arm64/rk3588/rd3588/include
+./drivers/platform -> drivers/dummy
+./include/arch -> arch/arm64/include
+./include/libcxx -> libs/libxx/libcxx/include
+./Make.defs -> tools/../boards/arm64/rk3588/rd3588/scripts/Make.defs

@@ -1,0 +1,457 @@
+/* board base */
+
+#define RD_RK3588_VIDEO
+
+#include "rp-rk3588-board.dtsi"
+
+/* usb */
+#include "rp-usb3-otg-typeA.dtsi"
+#include "rp-usb3-host-typeA.dtsi"
+#include "rp-usb2-host.dtsi"
+
+/* ethernet */
+#include "rp-eth-pcie2gmac-rk3588.dtsi"
+#include "rp-eth-gmac1.dtsi"
+
+/* sata, pcie2 or usb3.0 */
+#include "rp-sata3.0-ssd.dtsi"
+
+/* m.2 */
+#include "rp-pcie3.0-2x2lane.dtsi"
+
+/* audio */
+#include "rp-audio-rt5640.dtsi"
+
+/* wifi/bt */
+#include "rp-wifi-bt-ap6275p-rk3588.dtsi"
+
+/* camera */
+
+#include "rp-camera-dcphy0-mipi-xs9922b.dtsi"
+#include "rp-camera-dcphy1-mipi-xs9922b.dtsi"
+#include "rp-camera-dphy0-mipi-xs9922b.dtsi"
+#include "rp-camera-dphy1-mipi-xs9922b.dtsi"
+
+/* display */
+#include "rp-lcd-hdmi0.dtsi"
+#include "rp-lcd-hdmi1.dtsi"
+
+#include "rp-lcd-mipi0-mipi2hdmi-it6161.dtsi"
+#include "rp-lcd-mipi1-mipi2hdmi-it6161.dtsi"
+
+/* mipi0 dp 都属于 vp2，设备树可同时开启但同时插入会导致无显示 */
+#include "rp-lcd-dp0-dp2vga-it6516bfn.dtsi"
+
+/ {
+    model = "rd-rk3588-video";
+
+    reserved-memory {
+        #address-cells = <2>;
+        #size-cells = <2>;
+        ranges;
+        dma_trans: dma-trans@3c000000 {
+            reg = <0x0 0x3c000000 0x0 0x04000000>;
+        };
+    };
+
+    vcc_1v1_nldo_s3: vcc-1v1-nldo-s3 {
+        compatible = "regulator-fixed";
+        regulator-name = "vcc_1v1_nldo_s3";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <1100000>;
+        regulator-max-microvolt = <1100000>;
+        vin-supply = <&vcc5v0_sys>;
+    };
+    
+    // define in rp-pcie3.0-2x2lane.dtsi
+    vcc3v3-pcie30 {
+        gpios = <&gpio2 RK_PC5 GPIO_ACTIVE_HIGH>;
+    };
+    
+    // define in rp-usb3-otg-typeA.dtsi
+    vbus5v0-otg {
+        gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_HIGH>;
+    };
+    
+    ahd1_en: ahd1-en {
+        compatible = "regulator-fixed";
+        regulator-name = "ahd1_en";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <3300000>;
+        regulator-max-microvolt = <3300000>;
+        enable-active-high;
+        gpios = <&gpio4 RK_PC3 GPIO_ACTIVE_HIGH>;
+        startup-delay-us = <5000>;
+        vin-supply = <&vcc12v_dcin>;
+    };
+    
+    ahd2_en: ahd2-en {
+        compatible = "regulator-fixed";
+        regulator-name = "ahd2_en";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <3300000>;
+        regulator-max-microvolt = <3300000>;
+        enable-active-high;
+        gpios = <&gpio2 RK_PB7 GPIO_ACTIVE_HIGH>;
+        startup-delay-us = <5000>;
+        vin-supply = <&vcc12v_dcin>;
+    };
+    
+    ahd3_en: ahd3-en {
+        compatible = "regulator-fixed";
+        regulator-name = "ahd3_en";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <3300000>;
+        regulator-max-microvolt = <3300000>;
+        enable-active-high;
+        gpios = <&gpio2 RK_PC3 GPIO_ACTIVE_HIGH>;
+        startup-delay-us = <5000>;
+        vin-supply = <&vcc12v_dcin>;
+    };
+    
+    ahd4_en: ahd4-en {
+        compatible = "regulator-fixed";
+        regulator-name = "ahd4_en";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <3300000>;
+        regulator-max-microvolt = <3300000>;
+        enable-active-high;
+        gpios = <&gpio2 RK_PB6 GPIO_ACTIVE_HIGH>;
+        startup-delay-us = <5000>;
+        vin-supply = <&vcc12v_dcin>;
+    };
+    
+    // Power on as soon as possible 
+    vdd_5v_3v3: vdd-5v-3v3 {
+        compatible = "regulator-fixed";
+        regulator-name = "vdd_5v_3v3";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <3300000>;
+        regulator-max-microvolt = <3300000>;
+        enable-active-high;
+        gpios = <&gpio1 RK_PD5 GPIO_ACTIVE_HIGH>;
+        startup-delay-us = <5000>;
+        vin-supply = <&vcc12v_dcin>;
+    };
+    
+    sata_pwr: sata-pwr {
+        compatible = "regulator-fixed";
+        regulator-name = "sata_pwr";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <3300000>;
+        regulator-max-microvolt = <3300000>;
+        enable-active-high;
+        gpios = <&gpio4 RK_PC6 GPIO_ACTIVE_HIGH>;
+        startup-delay-us = <5000>;
+        vin-supply = <&vcc12v_dcin>;
+    };    
+
+    stm706 {
+        status = "okay";
+        compatible = "stm706";
+        reset_gpio = <&gpio1 RK_PB1 GPIO_ACTIVE_HIGH>;
+        wdt_gpio = <&gpio1 RK_PB2 GPIO_ACTIVE_HIGH>;
+    };
+    
+    leds {
+        compatible = "gpio-leds";
+        /delete-node/ work;
+        
+        /*
+         * enable led:
+         * echo wlan0 > /sys/class/leds/wifi/device_name
+         * echo 1 > /sys/class/leds/wifi/link
+         * echo 1 > /sys/class/leds/wifi/tx
+         * echo 1 > /sys/class/leds/wifi/rx
+         */
+        wifi_led: wifi_led {
+            label = "wifi";
+            gpios = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;
+            default-state = "off";
+            linux,default-trigger = "netdev";
+        };
+        
+        /*
+         * modify trigger uart:
+         * echo ttyUSB0 > /sys/class/leds/gps/device_name
+         */
+        gps_led: serial_led {
+            label = "gps";
+            gpios = <&gpio1 RK_PD3 GPIO_ACTIVE_HIGH>;
+            linux,default-trigger = "serial-activity";
+            default-state = "off";
+            default-uart = "ttyS0"; // config a default uart to trigger led.
+        };
+        
+        /* 
+         * trigger led blink
+         * echo heartbeat > /sys/class/leds/heartbeat_led/trigger
+         */
+        heartbeat_led: led-heartbeat {
+            label = "heartbeat";
+            gpios = <&gpio4 RK_PA6 GPIO_ACTIVE_HIGH>;
+            default-state = "on";
+            linux,default-trigger = "none";
+        };
+        
+        /*
+         * other led for user custom
+         * 1. config blink mode: echo "255 100 0 200 255 100" > /sys/class/leds/other/pattern
+         * brightness:255, hold time:100ms, brightness:0, hold time:200ms, brightness:255, hold time:100ms
+         * 
+         * 2. config repeat times: echo 5 > /sys/class/leds/other/repeat (repeat 5 times)
+         * -1(default): forever
+         */
+        other_led: other-led {
+            label = "other";
+            gpios = <&gpio1 RK_PC6 GPIO_ACTIVE_HIGH>; 
+            default-state = "on"; 
+            linux,default-trigger = "pattern";
+        };
+    };
+
+    fan_gpio_control {
+        compatible = "fan_gpio_control";
+        gpio-pin = <&gpio4 RK_PA7 GPIO_ACTIVE_HIGH>;
+        thermal-zone = "soc-thermal";
+        threshold-temp = <60000>; //60C
+        running-time = <10000>; //10s
+        status = "okay";
+    };
+
+    rp_power{
+        status = "okay";
+        compatible = "rp_power";
+        rp_not_deep_sleep = <1>;
+
+/*
+ * #define GPIO_FUNCTION_OUTPUT 0
+ * #define GPIO_FUNCTION_INPUT 1
+ * #define GPIO_FUNCTION_IRQ 2
+ * #define GPIO_FUNCTION_FLASH 3
+ * #define GPIO_FUNCTION_OUTPUT_CTRL 4
+ */     
+        usb3_hub_rst {  
+            gpio_num = <&gpio3 RK_PB2 GPIO_ACTIVE_LOW>;
+            gpio_function = <4>;
+        };
+        
+        //all usb pwr ctrl
+        vcc5v_usb_pwr {  
+            gpio_num = <&gpio2 RK_PC1 GPIO_ACTIVE_HIGH>;
+            gpio_function = <4>;
+        };
+
+        vdd_gps {
+            gpio_num = <&gpio2 RK_PC0 GPIO_ACTIVE_HIGH>;
+            gpio_function = <4>;
+        };
+
+        vdd_4G {  
+            gpio_num = <&gpio4 RK_PA4 GPIO_ACTIVE_HIGH>;
+            gpio_function = <4>;
+        };
+        
+        ft4232_pwr {
+            gpio_num = <&gpio4 RK_PC2 GPIO_ACTIVE_HIGH>;
+            gpio_function = <4>;
+        };
+    };
+
+    rp_gpio{
+        status = "okay";
+        compatible = "rp_gpio";
+        
+        // input GPIO
+        // gpio1a7
+        IO_IN_1 {
+            gpio_num = <&gpio1 RK_PA7 GPIO_ACTIVE_HIGH>;
+            gpio_function = <1>;
+        };
+        // gpio1b0
+        IO_IN_2 {
+            gpio_num = <&gpio1 RK_PB0 GPIO_ACTIVE_HIGH>;
+            gpio_function = <1>;
+        };
+        // gpio1b6
+        IO_IN_3 {
+            gpio_num = <&gpio1 RK_PB6 GPIO_ACTIVE_HIGH>;
+            gpio_function = <1>;
+        };
+        // gpio1b7
+        IO_IN_4 {
+            gpio_num = <&gpio1 RK_PB7 GPIO_ACTIVE_HIGH>;
+            gpio_function = <1>;
+        };
+        // gpio3c6
+        IO_IN_5 {
+            gpio_num = <&gpio3 RK_PC6 GPIO_ACTIVE_HIGH>;
+            gpio_function = <1>;
+        };
+        // gpio4b4
+        IO_IN_6 {
+            gpio_num = <&gpio4 RK_PB4 GPIO_ACTIVE_HIGH>;
+            gpio_function = <1>;
+        };
+        // end input GPIO
+        
+        // output GPIO
+        // gpio4a5
+        IO_OUT_1 {
+            gpio_num = <&gpio4 RK_PA5 GPIO_ACTIVE_HIGH>;
+            gpio_function = <0>;
+        };
+        // gpio3d1
+        IO_OUT_2 {
+            gpio_num = <&gpio3 RK_PD1 GPIO_ACTIVE_HIGH>;
+            gpio_function = <0>;
+        };
+        // gpio3d2
+        IO_OUT_3 {
+            gpio_num = <&gpio3 RK_PD2 GPIO_ACTIVE_HIGH>;
+            gpio_function = <0>;
+        };
+        // gpio3d4
+        IO_OUT_4 {
+            gpio_num = <&gpio3 RK_PD4 GPIO_ACTIVE_HIGH>;
+            gpio_function = <0>;
+        };
+        // gpio3d3
+        IO_OUT_5 {
+            gpio_num = <&gpio3 RK_PD3 GPIO_ACTIVE_HIGH>;
+            gpio_function = <0>;
+        };
+        // gpio3d5
+        IO_OUT_6 {
+            gpio_num = <&gpio3 RK_PD5 GPIO_ACTIVE_HIGH>;
+            gpio_function = <0>;
+        };
+        // end output GPIO
+    };
+};
+
+&pcie2x1l0 {    
+    /delete-property/ vpcie3v3-supply;
+};
+
+&pcie2x1l2 {
+    /delete-property/ vpcie3v3-supply;
+};
+
+// GPS
+&uart0 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart0m0_xfer>;
+};
+
+// RS485
+&uart6 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart6m0_xfer>;
+};
+
+// RS485
+&uart7 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart7m1_xfer>;
+};
+
+// RS232
+&uart8 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart8m0_xfer>;
+};
+
+&can0 {
+    assigned-clocks = <&cru CLK_CAN0>;
+    assigned-clock-rates = <200000000>;
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&can0m0_pins>;
+};
+
+&can1 {
+    assigned-clocks = <&cru CLK_CAN0>;
+    assigned-clock-rates = <200000000>;
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&can1m1_pins>;
+};
+
+&i2c4 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c4m1_xfer>;
+
+    hym8563: hym8563@51 {
+        status = "okay";
+        compatible = "haoyu,hym8563";
+        reg = <0x51>;
+        #clock-cells = <0>;
+        clock-frequency = <32768>;
+        clock-output-names = "hym8563";
+        //pinctrl-names = "default";
+        //pinctrl-0 = <&hym8563_int>;
+        //interrupt-parent = <&gpio0>;
+        //interrupts = <RK_PD4 IRQ_TYPE_LEVEL_LOW>;
+        wakeup-source;
+    };
+};
+
+&i2c3 {
+    status = "okay";
+};
+
+&sdmmc {
+    status = "okay";
+};
+
+&fiq_debugger {
+    rockchip,baudrate = <115200>;
+};
+
+
+&vdd_log_s0 {
+	regulator-always-on;
+	regulator-boot-on;
+	regulator-min-microvolt = <750000>;
+	regulator-max-microvolt = <750000>;
+	regulator-ramp-delay = <12500>;
+	regulator-name = "vdd_log_s0";
+	regulator-state-mem {
+		regulator-off-in-suspend;
+		regulator-suspend-microvolt = <750000>;
+	};
+};
+
+&dmc {
+    status = "disabled";
+};
+		
+&dfi {
+    status = "disabled";
+};
+			
+&vdd_ddr_s0 {
+	regulator-always-on;
+	regulator-boot-on;
+	regulator-min-microvolt = <900000>;
+	regulator-max-microvolt = <900000>;
+	regulator-ramp-delay = <12500>;
+	regulator-name = "vdd_ddr_s0";
+	regulator-state-mem {
+		regulator-off-in-suspend;
+		regulator-suspend-microvolt = <900000>;
+	};
+};

@@ -1,0 +1,5 @@
+config BR2_PACKAGE_APP_PRINTDBG
+	bool "printdbg"
+	help
+	  Winfred Young printdbg command
+	  

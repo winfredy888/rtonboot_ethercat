@@ -1,0 +1,26 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+menuconfig DRIVERS_ETHERCAT
+	bool "IGH Ethercat Support"
+	default n
+	---help---
+		Drivers for IGH Ethercat.
+
+if DRIVERS_ETHERCAT
+
+config ETHERCAT_MASTER
+	bool "ETHERCAT_MASTER support"
+	default n
+	---help---
+		Drivers for IGH Ethercat Master.
+				
+config ETHERCAT_stmmac
+	bool "ETHERCAT stmmac device support"
+	default n
+	---help---
+		Drivers for ETHERCAT stmmac device.		
+
+endif # DRIVERS_ETHERCAT

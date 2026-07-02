@@ -1,0 +1,9 @@
+RK_YOCTO_CFG="rockchip-rk3562-evb"
+RK_KERNEL_DTS_NAME="rk3562/lga-rk3562"
+RK_WIFIBT_TTY="ttyS1"
+RK_USE_FIT_IMG=y
+RK_PARAMETER="parameter-buildroot-fit.txt"
+RK_CHIP_FAMILY="rk3562"
+RK_ROOTFS_SYSTEM_OPENKYLIN=y
+RK_KERNEL_CFG_FRAGMENTS="rockchip_wifi_builtin.config"
+

@@ -1,0 +1,34 @@
+system.c.home.forlinx.3568.linux_3568.apps.system.system.o: system.c \
+ /home/forlinx/3568/linux_3568/nuttx/include/nuttx/config.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/sys/wait.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/sys/types.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/nuttx/compiler.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/stdint.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/arch/types.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/arch/inttypes.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/limits.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/arch/limits.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/signal.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/time.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/stdlib.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/sched.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/stdbool.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/strings.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/string.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/stddef.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/alloca.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/spawn.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/assert.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/debug.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/syslog.h \
+ /opt/gcc_arm/lib/gcc/aarch64-none-elf/11.3.1/include/stdarg.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/sys/uio.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/errno.h \
+ /home/forlinx/3568/linux_3568/apps/include/nshlib/nshlib.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/arpa/inet.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/netinet/in.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/sys/socket.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/endian.h \
+ /home/forlinx/3568/linux_3568/nuttx/include/sys/endian.h
+# No files specified for dependency generation
+# No files specified for dependency generation

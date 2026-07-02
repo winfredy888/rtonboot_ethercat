@@ -1,0 +1,23 @@
+#!/bin/sh
+#
+# Start the eccrtl application....
+#
+
+case "$1" in
+  start)
+	printf "Starting eccrtl application: "
+	eccrtl &
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+	;;
+  stop)
+	printf "Stopping eccrtl application: "
+	busybox killall eccrtl
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+	;;
+  *)
+	echo "Usage: $0 {start|stop}"
+	exit 1
+esac
+
+exit $?
+

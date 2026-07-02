@@ -1,0 +1,33 @@
+/ {
+
+    pcie30_avdd1v8: pcie30-avdd1v8 {
+        compatible = "regulator-fixed";
+        regulator-name = "pcie30_avdd1v8";
+        regulator-boot-on;
+        regulator-always-on;
+        regulator-min-microvolt = <1800000>;
+        regulator-max-microvolt = <1800000>;
+        vin-supply = <&avcc_1v8_s0>;
+    };
+
+    pcie30_avdd0v75: pcie30-avdd0v75 {
+        compatible = "regulator-fixed";
+        regulator-name = "pcie30_avdd0v75";
+        regulator-boot-on;
+        regulator-always-on;
+        regulator-min-microvolt = <750000>;
+        regulator-max-microvolt = <750000>;
+        vin-supply = <&avdd_0v75_s0>;
+    };
+};
+
+&pcie30phy {
+    status = "okay";
+};
+
+&pcie3x4 {
+    reset-gpios = <&gpio4 RK_PB6 GPIO_ACTIVE_HIGH>;
+    vpcie3v3-supply = <&vcc3v3_pcie30>;
+    status = "okay";
+};
+

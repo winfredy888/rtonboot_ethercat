@@ -1,0 +1,324 @@
+
+#include "dt-bindings/pwm/pwm.h"
+#include "dt-bindings/input/input.h"
+#include "../rk3399.dtsi"
+#include "../rk3399-opp.dtsi"
+#include "../rk3399-linux.dtsi"
+
+#include <dt-bindings/sensor-dev.h>
+
+/ {
+    
+    chosen {
+        stdout-path = "serial2:1500000n8";
+    };
+    
+    dc_12v: dc-12v {
+        compatible = "regulator-fixed";
+        regulator-name = "dc_12v";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <12000000>;
+        regulator-max-microvolt = <12000000>;
+    };
+    
+    vcc1v8_s3: vcca1v8_s3: vcc1v8-s3 {
+        compatible = "regulator-fixed";
+        regulator-name = "vcc1v8_s3";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <1800000>;
+        regulator-max-microvolt = <1800000>;
+        vin-supply = <&vcc_1v8>;
+    };
+
+    vcc3v0_sd: vcc3v0-sd {
+        status = "disabled";
+        compatible = "regulator-fixed";
+        enable-active-high;
+        gpio = <&gpio0 RK_PA1 GPIO_ACTIVE_HIGH>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&sdmmc0_pwr_h>;
+        regulator-always-on;
+        regulator-max-microvolt = <3000000>;
+        regulator-min-microvolt = <3000000>;
+        regulator-name = "vcc3v0_sd";
+        vin-supply = <&vcc3v3_sys>;
+    };
+
+    vcc3v3_sys: vcc3v3-sys {
+        compatible = "regulator-fixed";
+        regulator-name = "vcc3v3_sys";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <3300000>;
+        regulator-max-microvolt = <3300000>;
+        vin-supply = <&vcc_sys>;
+    };
+    
+    vcc_sys: vcc-sys {
+        compatible = "regulator-fixed";
+        regulator-name = "vcc_sys";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <5000000>;
+        regulator-max-microvolt = <5000000>;
+        vin-supply = <&dc_12v>;
+    };
+
+    vdd_log: vdd-log {
+        compatible = "pwm-regulator";
+        pwms = <&pwm2 0 25000 1>;
+        regulator-name = "vdd_log";
+        regulator-always-on;
+        regulator-boot-on;
+        regulator-min-microvolt = <800000>;
+        regulator-init-microvolt = <1050000>;
+        regulator-max-microvolt = <1400000>;
+		vin-supply = <&vcc_sys>;
+    };
+    
+    spdif-sound {
+        status = "disabled";
+        compatible = "simple-audio-card";
+        simple-audio-card,name = "ROCKCHIP,SPDIF";
+        simple-audio-card,cpu {
+            sound-dai = <&spdif>;
+        };
+        simple-audio-card,codec {
+            sound-dai = <&spdif_out>;
+        };
+    };
+
+    spdif_out: spdif-out {
+        status = "disabled";
+        compatible = "linux,spdif-dit";
+        #sound-dai-cells = <0>;
+    };
+
+};
+
+&pwm2 {
+    status = "okay";
+};
+
+&cpu_l0 {
+    cpu-supply = <&vdd_cpu_l>;
+};
+
+&cpu_l1 {
+    cpu-supply = <&vdd_cpu_l>;
+};
+
+&cpu_l2 {
+    cpu-supply = <&vdd_cpu_l>;
+};
+
+&cpu_l3 {
+    cpu-supply = <&vdd_cpu_l>;
+};
+
+&cpu_b0 {
+    cpu-supply = <&vdd_cpu_b>;
+};
+
+&cpu_b1 {
+    cpu-supply = <&vdd_cpu_b>;
+};
+
+&cpu_thermal {
+    trips {
+        cpu_hot: cpu_hot {
+            hysteresis = <10000>;
+            temperature = <55000>;
+            type = "active";
+        };
+    };
+
+    cooling-maps {
+        map2 {
+            //cooling-device =
+            //    <&fan0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+            trip = <&cpu_hot>;
+        };
+    };
+};
+
+&emmc_phy {
+    status = "okay";
+};
+
+
+&gpu {
+    mali-supply = <&vdd_gpu>;
+    status = "okay";
+};
+
+
+&dfi {
+    status = "disabled";
+};
+
+&dmc {
+    status = "disabled";
+    center-supply = <&vdd_center>;
+    upthreshold = <40>;
+    downdifferential = <20>;
+    system-status-freq = <
+        /*system status         freq(KHz)*/
+        SYS_STATUS_NORMAL       800000
+        SYS_STATUS_REBOOT       528000
+        SYS_STATUS_SUSPEND      200000
+        SYS_STATUS_VIDEO_1080P  200000
+        SYS_STATUS_VIDEO_4K     600000
+        SYS_STATUS_VIDEO_4K_10B 800000
+        SYS_STATUS_PERFORMANCE  800000
+        SYS_STATUS_BOOST        600000
+        SYS_STATUS_DUALVIEW     600000
+        SYS_STATUS_ISP          600000
+    >;
+    vop-bw-dmc-freq = <
+    /* min_bw(MB/s) max_bw(MB/s) freq(KHz) */
+        0       762      200000
+        763     1893     400000
+        1894    3012     528000
+        3013    99999    800000
+    >;
+    auto-freq-en = <1>;
+    auto-min-freq = <200000>;
+};
+
+&spdif {
+    status = "disabled";
+    pinctrl-0 = <&spdif_bus>;
+    i2c-scl-rising-time-ns = <450>;
+    i2c-scl-falling-time-ns = <15>;
+    #sound-dai-cells = <0>;
+};
+
+&i2c4 {
+    status = "okay";
+};
+
+
+&sdmmc {
+    broken-cd;
+    bus-width = <4>;
+    cap-mmc-highspeed;
+    cap-sd-highspeed;
+    sd-uhs-sdr104;
+    clock-frequency = <150000000>;
+    disable-wp;
+    max-frequency = <150000000>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&sdmmc_clk &sdmmc_cmd &sdmmc_cd &sdmmc_bus4>;
+    vmmc-supply = <&vcc3v0_sd>;
+    vqmmc-supply = <&vcc_sdio>;
+    status = "disabled";
+};
+
+
+&saradc {
+//    vref-supply = <&vcca1v8_s3>;
+    status = "okay";
+};
+
+&sdhci {
+    bus-width = <8>;
+    mmc-hs400-1_8v;
+    mmc-hs400-enhanced-strobe;
+    non-removable;
+    status = "okay";
+};
+
+
+&tsadc {
+    /* tshut mode 0:CRU 1:GPIO */
+    rockchip,hw-tshut-mode = <1>;
+    /* tshut polarity 0:LOW 1:HIGH */
+    rockchip,hw-tshut-polarity = <1>;
+    status = "okay";
+};
+
+&uart4 {
+    status = "disabled";
+};
+
+&uart3 {
+    status = "disabled";
+};
+
+&uart2 {
+    status = "disabled";
+};
+
+&uart1 {
+    status = "disabled";
+};
+
+&uart0 {
+    status = "disabled";
+};
+
+&fiq_debugger {
+    rockchip,serial-id = <2>;
+    rockchip,wake-irq = <0>;
+    rockchip,irq-mode-enable = <1>;  /* If enable uart uses irq instead of fiq */
+    rockchip,baudrate = <115200>;  /* Only 115200 and 1500000 */
+    interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH 0>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart2c_xfer>;
+};
+
+&hdmi{
+    status = "disabled";
+};
+
+&hdmi_sound {
+    status = "disabled";
+};
+
+&i2s2 {
+    status = "disabled";
+};
+
+&route_hdmi {
+    status = "disabled";
+};
+
+&hdmi_in_vopl { 
+    status = "disabled";
+}; 
+
+&hdmi_in_vopb { 
+    status = "disabled"; 
+}; 
+
+&rockchip_suspend {
+    status = "okay";
+    rockchip,sleep-debug-en = <1>;
+    rockchip,sleep-mode-config = <
+        (0
+        | RKPM_SLP_ARMPD
+        | RKPM_SLP_PERILPPD
+        | RKPM_SLP_DDR_RET
+        | RKPM_SLP_PLLPD
+        | RKPM_SLP_CENTER_PD
+        | RKPM_SLP_AP_PWROFF
+        )
+        >;
+    rockchip,wakeup-config = <
+        (0
+        | RKPM_GPIO_WKUP_EN
+        | RKPM_PWM_WKUP_EN
+        )
+        >;
+        rockchip,pwm-regulator-config = <
+        (0
+        | PWM2_REGULATOR_EN
+        )
+        >;
+        rockchip,power-ctrl =
+        <&gpio1 17 GPIO_ACTIVE_HIGH>,
+        <&gpio1 14 GPIO_ACTIVE_HIGH>;
+};

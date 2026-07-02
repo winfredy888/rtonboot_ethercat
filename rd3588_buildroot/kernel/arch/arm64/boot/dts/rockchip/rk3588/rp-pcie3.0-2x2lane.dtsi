@@ -1,0 +1,58 @@
+/*
+ * PCIe3.0-> 2lane + 2lane 
+ */
+/{
+    vcc3v3_pcie30: vcc3v3-pcie30 {
+        compatible = "regulator-fixed";
+        regulator-name = "vcc3v3_pcie30";
+        regulator-min-microvolt = <3300000>;
+        regulator-max-microvolt = <3300000>;
+        enable-active-high;
+        regulator-boot-on;
+        // add by main dts file
+        // gpios = <&gpio3 RK_PC3 GPIO_ACTIVE_HIGH>;
+        startup-delay-us = <5000>;
+        vin-supply = <&vcc12v_dcin>;
+    };
+};
+
+/*
+ * Note: PCIe3.0 port0 requires an external input clock. If there is no input clock, it must be disabled,
+ * otherwise the system will not start normally.
+ * externel clk(100MHz) --input--> PCIE30_PORT0_REFCLKP(N)_IN
+ */
+&pcie3x4 {
+    phys = <&pcie30phy>;
+    phy-names = "pcie-phy";
+    num-lanes = <2>;  //2lane
+    status = "okay";
+    // reset-gpios = <&gpio2 RK_PC0 GPIO_ACTIVE_HIGH>;
+    vpcie3v3-supply = <&vcc3v3_pcie30>;
+};
+
+/*
+ * Note: PCIe3.0 port1 requires an external input clock. If there is no input clock, it must be disabled,
+ * otherwise the system will not start normally.
+ * externel clk(100MHz) --input--> PCIE30_PORT1_REFCLKP(N)_IN
+ */
+&pcie3x2 {
+    phys = <&pcie30phy>;
+    phy-names = "pcie-phy";
+    num-lanes = <2>; //2lane
+    status = "okay";
+    // reset-gpios = <&gpio4 RK_PB0 GPIO_ACTIVE_HIGH>;
+    vpcie3v3-supply = <&vcc3v3_pcie30>;
+};
+
+/*
+ * #define PHY_MODE_PCIE_AGGREGATION 4  PCIe3x4 
+ * #define PHY_MODE_PCIE_NANBNB 0       P1:2lane   + P0:2lane 
+ * #define PHY_MODE_PCIE_NANBBI 1       P1:2lane   + P0:1lane*2 
+ * #define PHY_MODE_PCIE_NABINB 2       P1:1lane*2 + P0:2lane 
+ * #define PHY_MODE_PCIE_NABIBI 3       P1:1lane*2 + P0:1lane*2 
+ */
+&pcie30phy {
+    rockchip,pcie30-phymode = <PHY_MODE_PCIE_NANBNB>;
+    status = "okay";
+};
+

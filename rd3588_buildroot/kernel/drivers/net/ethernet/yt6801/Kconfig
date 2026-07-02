@@ -1,0 +1,6 @@
+config YT6810
+        tristate "YT6810 support"
+        help
+          Support for YT6810 chipset
+
+

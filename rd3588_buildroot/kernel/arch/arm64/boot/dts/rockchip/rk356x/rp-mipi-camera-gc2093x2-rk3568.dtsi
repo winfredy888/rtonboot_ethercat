@@ -1,0 +1,254 @@
+#define RP_GC2093x2_CAMERA
+
+/ {
+
+
+        vcc_camera: vcc-camera-regulator {
+                compatible = "regulator-fixed";
+                gpio = <&gpio1 RK_PD3 GPIO_ACTIVE_HIGH>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&camera_pwr>;
+                regulator-name = "vcc_camera";
+                enable-active-high;
+                regulator-always-on;
+                regulator-boot-on;
+        };
+
+
+};
+
+&i2c4 {
+        status = "okay";
+	gc2093_0: gc2093_0@37 {
+                compatible = "galaxycore,gc2093";
+                status = "okay";
+                reg = <0x37>;
+                clocks = <&cru CLK_CIF_OUT>;
+                clock-names = "xvclk";
+                power-domains = <&power RK3568_PD_VI>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&cif_clk>;
+		pwdn-gpios = <&gpio1 RK_PD4 GPIO_ACTIVE_HIGH>;
+                reset-gpios = <&gpio1 RK_PD0 GPIO_ACTIVE_LOW>;
+                //avdd-supply = <&vcc_avdd>;
+                //dovdd-supply = <&vcc_dovdd>;
+                //dvdd-supply = <&vcc_dvdd>;
+                rockchip,camera-module-index = <0>;
+                rockchip,camera-module-facing = "back";
+                rockchip,camera-module-name = "SIDB205300385-VA";
+                rockchip,camera-module-lens-name = "default";
+                //rockchip,camera-module-name = "DW-RV2093-V1.0";
+                //rockchip,camera-module-lens-name = "JZ-7070AS-A1";
+                port {
+                        ucam_out0: endpoint {
+                                remote-endpoint = <&mipi_in_ucam0>;
+                                data-lanes = <1 2>;
+                        };
+                };
+        };
+        gc2093_clk_24m_0: gc2093_clk_24m_0@7e {
+                compatible = "galaxycore,gc2093_clk_24m";
+                status = "okay";
+                reg = <0x7e>;
+                clocks = <&pmucru CLK_WIFI>;
+                clock-names = "xvclk";
+                power-domains = <&power RK3568_PD_VI>;
+                pinctrl-names = "default";
+                pinctrl-0 = <&refclk_pins>;
+		pwdn-gpios = <&gpio1 RK_PD2 GPIO_ACTIVE_HIGH>;
+                reset-gpios = <&gpio1 RK_PD1 GPIO_ACTIVE_LOW>;
+                //avdd-supply = <&vcc_avdd>;
+                //dovdd-supply = <&vcc_dovdd>;
+                //dvdd-supply = <&vcc_dvdd>;
+                rockchip,camera-module-index = <1>;
+                rockchip,camera-module-facing = "front";
+                rockchip,camera-module-name = "DW-RV2093-V1.0";
+                rockchip,camera-module-lens-name = "JZ-7070AS-A1";
+                port {
+                        ucam_out1: endpoint {
+                                remote-endpoint = <&mipi_in_ucam1>;
+                                data-lanes = <1 2>;
+                        };
+                };
+        };
+};
+
+&csi2_dphy_hw {
+        status = "okay";
+};
+
+&csi2_dphy0 {
+		status = "disabled";
+};
+
+&csi2_dphy1 {
+        status = "okay";
+
+        ports {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                port@0 {
+                        reg = <0>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+                        mipi_in_ucam0: endpoint@1 {
+                                reg = <1>;
+                                remote-endpoint = <&ucam_out0>;
+                                data-lanes = <1 2>;
+                        };
+              };
+                port@1 {
+                        reg = <1>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+                        csidphy_out0: endpoint@0 {
+                                reg = <0>;
+                                remote-endpoint = <&isp0_in>;
+                        };
+                };
+        };
+};
+
+
+&csi2_dphy2 {
+        status = "okay";
+
+        ports {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                port@0 {
+                        reg = <0>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+                        mipi_in_ucam1: endpoint@1 {
+                                reg = <1>;
+                                remote-endpoint = <&ucam_out1>;
+                                data-lanes = <1 2>;
+                        };
+              };
+                port@1 {
+                        reg = <1>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+                        csidphy_out1: endpoint@0 {
+                                reg = <0>;
+                                remote-endpoint = <&mipi_csi2_input>;
+                        };
+                };
+        };
+};
+
+&mipi_csi2 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			mipi_csi2_input: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&csidphy_out1>;
+				data-lanes = <1 2>;
+			};
+		};
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			
+			mipi_csi2_output: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&cif_mipi_in>;
+				data-lanes = <1 2>;
+				};
+		};
+	};
+};
+
+&rkcif_mipi_lvds {
+	status = "okay";
+	port {
+		cif_mipi_in: endpoint {
+		remote-endpoint = <&mipi_csi2_output>;
+		data-lanes = <1 2>;
+		};
+	};
+};
+
+&rkcif_mipi_lvds_sditf {
+	status = "okay";
+	port {
+		mipi_lvds_sditf: endpoint {
+			remote-endpoint = <&isp1_in>;
+			data-lanes = <1 2>;
+		};
+	};
+};
+
+
+&rkisp_vir0 {
+        status = "okay";
+
+        port {
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                isp0_in: endpoint@0 {
+                        reg = <0>;
+                        remote-endpoint = <&csidphy_out0>;
+                };
+        };
+};
+
+
+
+&rkisp_vir1 {
+	status = "okay";
+	
+	ports {
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			
+			isp1_in: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&mipi_lvds_sditf>;
+			};
+		};
+	};
+};
+
+
+&rkisp {
+        status = "okay";
+};
+
+&rkisp_mmu {
+        status = "okay";
+};
+
+&rkcif_mmu {
+    status = "okay";
+};
+
+&rkcif {
+    status = "okay";
+};
+
+
+&pinctrl {
+        cam {
+                camera_pwr: camera-pwr {
+                        rockchip,pins =
+                                /* camera power en */
+                                <1 RK_PD3 RK_FUNC_GPIO &pcfg_pull_none>;
+                };
+        };
+};

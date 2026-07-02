@@ -1,0 +1,141 @@
+/****************************************************************************
+ * apps/testing/osperf/osperf.c
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.  The
+ * ASF licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ ****************************************************************************/
+
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
+
+#include <assert.h>
+#include <limits.h>
+#include <pthread.h>
+#include <sched.h>
+#include <semaphore.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/param.h>
+#include <sys/poll.h>
+
+#include <nuttx/sched.h>
+#include <nuttx/kthread.h>
+
+#include "../common/arm64_internal.h"
+
+#include <nuttx/semaphore.h>
+
+#define EC_TIMER_BASE      0xFE5F0A0 
+
+#define TIMER_CTRL		0x10
+#define TIMER_LOAD_COUNT0	0x00
+#define TIMER_LOAD_COUNT1	0x04
+#define TIMER_CURRENT_VALUE0	0x08
+#define TIMER_CURRENT_VALUE1	0x0C
+#define TIMER_INTSTATUS		0x18
+
+#define MYBIT(x) (1<<(x))
+
+#define TIMER_EN		MYBIT(0)
+#define TIMER_UD		MYBIT(1)
+#define TIMER_INT_EN		MYBIT(2)
+#define TIMER_CLR_INT		MYBIT(0)
+
+
+uint32_t g_ec_timer_base = EC_TIMER_BASE;
+
+
+extern int linux_printf(const char *fmt, ...);
+
+#define printf linux_printf
+
+sem_t g_ec_timer_sem;
+
+uint64_t get_ec_timer_count(void)
+{
+	uint32_t cur_count0, cur_count1;
+	uint64_t tmp;
+	
+	cur_count0 = getreg32( g_ec_timer_base + TIMER_CURRENT_VALUE0 );
+	
+	cur_count1 = getreg32( g_ec_timer_base + TIMER_CURRENT_VALUE1 );
+	
+	tmp = cur_count0 + (((uint64_t)cur_count1) << 32);
+	
+	return tmp;
+}
+
+int is_in_ec_sleep = 0;
+
+void ec_timer_sleep(uint64_t ns)
+{
+  uint32_t load_count0, load_count1;
+      
+  putreg32( 0, g_ec_timer_base + TIMER_CTRL);
+  
+  ns /= 41;
+    
+  /*load_count1 = (ns >> 32);
+  load_count0 = (ns & 0xffffffff);*/
+  
+  load_count1 = 0;
+  load_count0 = 24390;
+  
+  putreg32(load_count0, g_ec_timer_base + TIMER_LOAD_COUNT0);
+  putreg32(load_count1, g_ec_timer_base + TIMER_LOAD_COUNT1);
+  
+  putreg32(TIMER_CLR_INT, g_ec_timer_base + TIMER_INTSTATUS);
+  putreg32( TIMER_EN | TIMER_INT_EN | TIMER_UD, g_ec_timer_base +  TIMER_CTRL );
+  
+  /*uint64_t cnt;
+  
+  for(int i = 0; i < 100; ++i)
+  {
+	  cnt = get_ec_timer_count();
+	  
+	  linux_printf("ccccccccccccccc %llu\n", cnt);
+	  
+	  up_udelay(100);
+  }	*/  
+  
+  nxsem_init(&g_ec_timer_sem, 0, 0);
+  
+   is_in_ec_sleep = 1;
+  
+  nxsem_wait(&g_ec_timer_sem);
+}
+
+int ec_timer_isr(int irq, void *regs, void *arg)
+{
+  putreg32( TIMER_CLR_INT, g_ec_timer_base + TIMER_INTSTATUS);
+  
+  if(is_in_ec_sleep)	
+  {    
+	nxsem_post(&g_ec_timer_sem);
+  
+	putreg32(0, g_ec_timer_base +  TIMER_CTRL);
+	
+	is_in_ec_sleep = 0;
+  }
+  
+  return OK;
+}
+

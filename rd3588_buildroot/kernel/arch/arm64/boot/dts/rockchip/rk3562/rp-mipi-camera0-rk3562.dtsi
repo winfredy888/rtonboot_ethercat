@@ -1,0 +1,200 @@
+
+/ {
+
+
+        vcc_camera: vcc-camera-regulator {
+                compatible = "regulator-fixed";
+                regulator-name = "vcc_camera";
+                enable-active-high;
+                regulator-always-on;
+                regulator-boot-on;
+		vin-supply = <&vcc1v8_dvp>;
+        };
+};
+
+&i2c4 {
+        status = "okay";
+	
+	dw9763_0: dw9763_0@c {
+                compatible = "dongwoon,dw9763";
+                status = "okay";
+                reg = <0x0c>;
+                rockchip,vcm-max-current = <120>;
+                rockchip,vcm-start-current = <20>;
+                rockchip,vcm-rated-current = <90>;
+                rockchip,vcm-step-mode = <3>;
+                rockchip,vcm-t-src = <0x20>;
+                rockchip,vcm-t-div = <1>;
+                rockchip,camera-module-index = <0>;
+                rockchip,camera-module-facing = "back";
+        };
+  
+        ov13855_0: ov13855_0@36 {
+                compatible = "ovti,ov13855";
+                status = "okay";
+                reg = <0x36>;
+		clocks = <&cru CLK_CAM0_OUT2IO>;
+                clock-names = "xvclk";
+                pinctrl-names = "default";
+                pinctrl-0 = <&camm0_clk0_out>;
+		pwdn-gpios = <&nca9555_gpio IO_05 GPIO_ACTIVE_HIGH>;
+                reset-gpios = <&nca9555_gpio IO_04 GPIO_ACTIVE_HIGH>;
+                rockchip,camera-module-index = <0>;
+                rockchip,camera-module-facing = "back";
+                rockchip,camera-module-name = "KYT-10203-v1";
+                rockchip,camera-module-lens-name = "default";
+                lens-focus = <&dw9763_0>;
+                port {
+                        ov13855_out0: endpoint {
+                                remote-endpoint = <&mipi_in_ov13855_0>;
+                                data-lanes = <1 2 3 4>;
+                        };
+                };
+        };
+	
+	gc8034_0: gc8034_0@37 {
+                compatible = "galaxycore,gc8034";
+                status = "okay";
+                reg = <0x37>;
+                clocks = <&cru CLK_CAM0_OUT2IO>;
+                clock-names = "xvclk";
+                pinctrl-names = "default";
+                pinctrl-0 = <&camm0_clk0_out>;
+                pwdn-gpios = <&nca9555_gpio IO_05 GPIO_ACTIVE_LOW>;
+                reset-gpios = <&nca9555_gpio IO_04 GPIO_ACTIVE_LOW>;
+                rockchip,camera-module-index = <0>;
+                rockchip,camera-module-facing = "back";
+                rockchip,camera-module-name = "RK-CMK-8M-2-v1";
+                rockchip,camera-module-lens-name = "CK8401";
+                port {
+                        gc8034_out0: endpoint {
+                                remote-endpoint = <&mipi_in_gc8034_0>;
+                                data-lanes = <1 2 3 4>;
+                        };
+                };
+        };
+};
+
+
+&csi2_dphy0_hw {
+	status = "okay";
+};
+
+&csi2_dphy0 {
+        status = "okay";
+
+        ports {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                port@0 {
+                        reg = <0>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+			mipi_in_gc8034_0: endpoint@0 {
+                                reg = <0>;
+                                remote-endpoint = <&gc8034_out0>;
+                                data-lanes = <1 2 3 4>;
+                        };
+
+			mipi_in_ov13855_0: endpoint@1 {
+                                reg = <1>;
+                                remote-endpoint = <&ov13855_out0>;
+                                data-lanes = <1 2 3 4>;
+                        };
+              };
+                port@1 {
+                        reg = <1>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+                        csidcphy0_out: endpoint@0 {
+                                reg = <0>;
+                                remote-endpoint = <&mipi0_csi2_input>;
+                        };
+                };
+        };
+};
+
+
+&mipi0_csi2 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi0_csi2_input: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&csidcphy0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi0_csi2_output: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&cif_mipi_in0>;
+			};
+		};
+	};
+};
+
+&rkcif {
+	status = "okay";
+};
+
+&rkcif_mipi_lvds {
+	status = "okay";
+
+	port {
+		cif_mipi_in0: endpoint {
+			remote-endpoint = <&mipi0_csi2_output>;
+		};
+	};
+};
+
+&rkcif_mipi_lvds_sditf {
+	status = "okay";
+
+	port {
+		mipi_lvds_sditf: endpoint {
+			remote-endpoint = <&isp_vir0>;
+		};
+	};
+};
+
+&rkcif_mmu {
+	status = "okay";
+};
+
+&rkisp {
+	status = "okay";
+};
+
+&rkisp_mmu {
+	status = "okay";
+};
+
+&rkisp_vir0 {
+	status = "okay";
+
+	port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		isp_vir0: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&mipi_lvds_sditf>;
+		};
+	};
+};
+

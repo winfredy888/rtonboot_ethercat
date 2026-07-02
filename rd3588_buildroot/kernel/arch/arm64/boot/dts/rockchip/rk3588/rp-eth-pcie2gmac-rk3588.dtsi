@@ -1,0 +1,10 @@
+&combphy0_ps { 
+    status = "okay"; 
+};
+
+&pcie2x1l2 {
+    phys = <&combphy0_ps PHY_TYPE_PCIE>;
+    vpcie3v3-supply = <&vcc3v3_pcie30>;
+  reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>; 
+    status = "okay";
+};

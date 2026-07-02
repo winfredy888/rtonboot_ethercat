@@ -1,0 +1,1 @@
+{ "motorctl", 128, 8192, motorctl_main },
